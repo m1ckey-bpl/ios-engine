@@ -1,4 +1,5 @@
 import SwiftUI
+import UniformTypeIdentifiers
 
 public struct DashboardView: View {
     @ObservedObject var licenseService = LicenseService.shared
@@ -14,12 +15,18 @@ public struct DashboardView: View {
                 
                 // Top Navigation Bar
                 HStack {
-                    HStack(spacing: 10) {
+                    HStack(spacing: 12) {
                         Image("Logo")
                             .resizable()
                             .scaledToFit()
-                            .frame(width: 36, height: 36)
-                            .clipShape(RoundedRectangle(cornerRadius: 10))
+                            .frame(width: 40, height: 40)
+                            .clipShape(Circle())
+                            .overlay(
+                                Circle()
+                                    .stroke(ThemeColors.cyanGlow, lineWidth: 1.5)
+                                    .allowsHitTesting(false)
+                            )
+                            .shadow(color: ThemeColors.cyanGlow.opacity(0.6), radius: 8)
                         
                         VStack(alignment: .leading, spacing: 2) {
                             Text("iOS ENGINE")
@@ -50,6 +57,7 @@ public struct DashboardView: View {
                     .overlay(
                         RoundedRectangle(cornerRadius: 20)
                             .stroke(ThemeColors.electricGreen.opacity(0.4), lineWidth: 1)
+                            .allowsHitTesting(false)
                     )
                     
                     Button(action: {
@@ -111,6 +119,7 @@ public struct DashboardView: View {
                             .overlay(
                                 RoundedRectangle(cornerRadius: 12)
                                     .stroke(ThemeColors.cyanGlow.opacity(0.3), lineWidth: 1)
+                                    .allowsHitTesting(false)
                             )
                     }
                 }
@@ -120,9 +129,17 @@ public struct DashboardView: View {
                 
                 // File Import & Analyzer Card
                 VStack(alignment: .leading, spacing: 14) {
-                    Text("ENVIRONMENT FILE PAYLOAD")
-                        .font(.system(size: 11, weight: .bold, design: .monospaced))
-                        .foregroundColor(ThemeColors.glassTextMuted)
+                    HStack {
+                        Text("ENVIRONMENT FILE PAYLOAD")
+                            .font(.system(size: 11, weight: .bold, design: .monospaced))
+                            .foregroundColor(ThemeColors.glassTextMuted)
+                        Spacer()
+                        if engineManager.selectedFileName != nil {
+                            Text("VERIFIED")
+                                .font(.system(size: 9, weight: .bold, design: .monospaced))
+                                .foregroundColor(ThemeColors.electricGreen)
+                        }
+                    }
                     
                     if let fileName = engineManager.selectedFileName {
                         // File Loaded State
@@ -159,13 +176,17 @@ public struct DashboardView: View {
                                 
                                 Spacer()
                                 
-                                Button(action: { showFilePicker = true }) {
+                                Button(action: {
+                                    let impact = UIImpactFeedbackGenerator(style: .light)
+                                    impact.impactOccurred()
+                                    showFilePicker = true
+                                }) {
                                     Text("CHANGE")
-                                        .font(.system(size: 10, weight: .bold))
+                                        .font(.system(size: 11, weight: .bold))
                                         .foregroundColor(ThemeColors.cyanGlow)
-                                        .padding(.horizontal, 10)
-                                        .padding(.vertical, 6)
-                                        .background(Color.white.opacity(0.08))
+                                        .padding(.horizontal, 12)
+                                        .padding(.vertical, 8)
+                                        .background(Color.white.opacity(0.12))
                                         .cornerRadius(8)
                                 }
                             }
@@ -191,32 +212,60 @@ public struct DashboardView: View {
                         .background(Color.white.opacity(0.04))
                         .cornerRadius(14)
                     } else {
-                        // Empty / Import Button State
-                        Button(action: { showFilePicker = true }) {
-                            VStack(spacing: 10) {
-                                Image(systemName: "folder.badge.plus")
-                                    .font(.system(size: 32))
-                                    .foregroundColor(ThemeColors.cyanGlow)
+                        // Interactive File Picker Trigger Button
+                        Button(action: {
+                            let impact = UIImpactFeedbackGenerator(style: .medium)
+                            impact.impactOccurred()
+                            showFilePicker = true
+                        }) {
+                            VStack(spacing: 12) {
+                                ZStack {
+                                    Circle()
+                                        .fill(ThemeColors.cyanGlow.opacity(0.15))
+                                        .frame(width: 60, height: 60)
+                                    Image(systemName: "folder.badge.plus")
+                                        .font(.system(size: 28))
+                                        .foregroundColor(ThemeColors.cyanGlow)
+                                }
                                 
-                                Text("SELECT FILE FROM FILE MANAGER")
-                                    .font(.system(size: 12, weight: .bold, design: .monospaced))
+                                Text("TAP TO IMPORT FILE FROM FILES")
+                                    .font(.system(size: 13, weight: .bold, design: .monospaced))
                                     .foregroundColor(.white)
                                 
-                                Text("Supports binary, packages, configs, and environment profiles")
-                                    .font(.system(size: 10))
+                                Text("Opens iOS Files app (iCloud, Downloads, On My iPhone)")
+                                    .font(.system(size: 11))
                                     .foregroundColor(ThemeColors.glassTextMuted)
                             }
                             .padding(.vertical, 24)
                             .frame(maxWidth: .infinity)
-                            .background(Color.black.opacity(0.25))
+                            .background(Color.black.opacity(0.35))
                             .cornerRadius(16)
                             .overlay(
                                 RoundedRectangle(cornerRadius: 16)
                                     .stroke(
                                         style: StrokeStyle(lineWidth: 1.5, dash: [6])
                                     )
-                                    .foregroundColor(ThemeColors.cyanGlow.opacity(0.5))
+                                    .foregroundColor(ThemeColors.cyanGlow.opacity(0.6))
+                                    .allowsHitTesting(false)
                             )
+                        }
+                        .buttonStyle(PlainButtonStyle())
+                        
+                        // Demo quick load fallback button
+                        Button(action: {
+                            loadDemoProfile()
+                        }) {
+                            HStack {
+                                Image(systemName: "sparkles")
+                                    .foregroundColor(ThemeColors.neonPurple)
+                                Text("OR LOAD DEMO ENGINE PROFILE")
+                                    .font(.system(size: 11, weight: .bold, design: .monospaced))
+                                    .foregroundColor(ThemeColors.neonPurple)
+                            }
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 10)
+                            .background(Color.white.opacity(0.05))
+                            .cornerRadius(10)
                         }
                     }
                 }
@@ -277,6 +326,7 @@ public struct DashboardView: View {
                         .overlay(
                             RoundedRectangle(cornerRadius: 12)
                                 .stroke(Color.white.opacity(0.1), lineWidth: 1)
+                                .allowsHitTesting(false)
                         )
                     }
                 }
@@ -287,19 +337,22 @@ public struct DashboardView: View {
                 Spacer().frame(height: 30)
             }
         }
-        .fileImporter(
-            isPresented: $showFilePicker,
-            allowedContentTypes: [.item],
-            allowsMultipleSelection: false
-        ) { result in
-            switch result {
-            case .success(let urls):
-                if let url = urls.first {
-                    engineManager.importFile(from: url)
-                }
-            case .failure(let error):
-                engineManager.appendLog("[ERROR] File picker error: \(error.localizedDescription)")
-            }
+        .sheet(isPresented: $showFilePicker) {
+            DocumentPickerView(onPick: { url in
+                engineManager.importFile(from: url)
+                showFilePicker = false
+            }, onCancel: {
+                showFilePicker = false
+            })
+            .ignoresSafeArea()
         }
+    }
+    
+    private func loadDemoProfile() {
+        let docs = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
+        let demoURL = docs.appendingPathComponent("engine_profile_default.bin")
+        let dummyData = "IOS_ENGINE_QUANTUM_CORE_DATA_v1.0".data(using: .utf8) ?? Data()
+        try? dummyData.write(to: demoURL)
+        engineManager.importFile(from: demoURL)
     }
 }

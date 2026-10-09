@@ -28,6 +28,7 @@ public struct LiquidGlassCardModifier: ViewModifier {
                                     endPoint: .bottomTrailing
                                 )
                             )
+                            .allowsHitTesting(false)
                     )
             )
             .overlay(
@@ -45,6 +46,7 @@ public struct LiquidGlassCardModifier: ViewModifier {
                         ),
                         lineWidth: strokeWidth
                     )
+                    .allowsHitTesting(false)
             )
             .shadow(color: glowColor.opacity(0.2), radius: 14, x: 0, y: 6)
     }

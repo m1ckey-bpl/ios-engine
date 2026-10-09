@@ -12,35 +12,36 @@ public struct LockScreenView: View {
             VStack(spacing: 28) {
                 Spacer().frame(height: 20)
                 
-                // Brand Header with Glowing Emblem
-                VStack(spacing: 12) {
+                // Brand Header with New Quantum Reactor Logo
+                VStack(spacing: 14) {
                     ZStack {
-                        RoundedRectangle(cornerRadius: 30, style: .continuous)
+                        Circle()
                             .fill(.ultraThinMaterial)
-                            .frame(width: 96, height: 96)
+                            .frame(width: 110, height: 110)
                             .overlay(
                                 Image("Logo")
                                     .resizable()
                                     .scaledToFit()
-                                    .frame(width: 80, height: 80)
-                                    .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
+                                    .frame(width: 100, height: 100)
+                                    .clipShape(Circle())
                             )
                             .overlay(
-                                RoundedRectangle(cornerRadius: 30, style: .continuous)
+                                Circle()
                                     .stroke(
                                         LinearGradient(
                                             colors: [ThemeColors.cyanGlow, ThemeColors.neonPurple],
                                             startPoint: .topLeading,
                                             endPoint: .bottomTrailing
                                         ),
-                                        lineWidth: 2
+                                        lineWidth: 2.5
                                     )
+                                    .allowsHitTesting(false)
                             )
-                            .shadow(color: ThemeColors.cyanGlow.opacity(0.5), radius: 20, x: 0, y: 8)
+                            .shadow(color: ThemeColors.cyanGlow.opacity(0.6), radius: 24, x: 0, y: 8)
                     }
                     
                     Text("iOS ENGINE")
-                        .font(.system(size: 30, weight: .black, design: .rounded))
+                        .font(.system(size: 32, weight: .black, design: .rounded))
                         .tracking(3)
                         .foregroundStyle(
                             LinearGradient(
@@ -135,6 +136,7 @@ public struct LockScreenView: View {
                         .overlay(
                             RoundedRectangle(cornerRadius: 14)
                                 .stroke(Color.white.opacity(0.15), lineWidth: 1)
+                                .allowsHitTesting(false)
                         )
                     }
                     
