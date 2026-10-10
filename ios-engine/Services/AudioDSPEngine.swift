@@ -18,7 +18,6 @@ public final class AudioDSPEngine: ObservableObject {
     @Published public var trackTitle: String = "Pioneer Hi-Fi Master Loop"
     @Published public var trackArtist: String = "Pioneer Sound Tune Studio"
     @Published public var hasCustomFileLoaded: Bool = false
-    @Published public var spectrumLevels: [CGFloat] = Array(repeating: 0.15, count: 16)
     
     // 10-Band EQ
     @Published public var eqBands: [EQBand] = [
@@ -41,7 +40,6 @@ public final class AudioDSPEngine: ObservableObject {
     private var reverbNode: AVAudioUnitReverb
     private var currentAudioFile: AVAudioFile?
     private var synthBuffer: AVAudioPCMBuffer?
-    private var spectrumTimer: AnyCancellable?
     
     public init() {
         self.audioEngine = AVAudioEngine()
@@ -53,7 +51,6 @@ public final class AudioDSPEngine: ObservableObject {
         setupEngineGraph()
         setupEQParameters()
         setupSynthDemoBuffer()
-        startSpectrumAnimation()
     }
     
     private func setupAudioSession() {
@@ -70,13 +67,11 @@ public final class AudioDSPEngine: ObservableObject {
         audioEngine.attach(eqNode)
         audioEngine.attach(reverbNode)
         
-        // Signal Chain: Player -> EQ -> Reverb -> MainMixer -> Output
         let format = audioEngine.outputNode.outputFormat(forBus: 0)
         audioEngine.connect(playerNode, to: eqNode, format: format)
         audioEngine.connect(eqNode, to: reverbNode, format: format)
         audioEngine.connect(reverbNode, to: audioEngine.mainMixerNode, format: format)
         
-        // Reverb Initial Configuration
         reverbNode.loadFactoryPreset(currentReverbRoom.avPreset)
         reverbNode.wetDryMix = 0.0
         
@@ -99,7 +94,6 @@ public final class AudioDSPEngine: ObservableObject {
         }
     }
     
-    // Real-Time Concert Hall Toggle
     public func toggleConcertHall() {
         isConcertHallEnabled.toggle()
         let impact = UIImpactFeedbackGenerator(style: .medium)
@@ -111,8 +105,7 @@ public final class AudioDSPEngine: ObservableObject {
             reverbWetDryMix = 65.0
             reverbNode.wetDryMix = 65.0
             
-            // Expand soundstage via gentle treble and sub-bass lift
-            setEQBandGain(index: 1, gain: 4.0) // 63Hz
+            setEQBandGain(index: 1, gain: 4.5) // 63Hz
             setEQBandGain(index: 8, gain: 3.5) // 8kHz
             setEQBandGain(index: 9, gain: 4.0) // 16kHz
         } else {
@@ -122,7 +115,6 @@ public final class AudioDSPEngine: ObservableObject {
         }
     }
     
-    // Real-Time Reverb Setting
     public func setReverbRoom(_ room: ReverbRoomType) {
         currentReverbRoom = room
         reverbNode.loadFactoryPreset(room.avPreset)
@@ -138,24 +130,18 @@ public final class AudioDSPEngine: ObservableObject {
         }
     }
     
-    // Real-Time Super Bass (Pioneer Todoroki Bass Boost)
     public func setSuperBass(_ gain: Float) {
         superBassGain = gain
-        // Boost 31Hz and 63Hz sub-bass frequencies
-        let g31 = gain * 0.8
-        let g63 = gain
-        setEQBandGain(index: 0, gain: g31)
-        setEQBandGain(index: 1, gain: g63)
+        setEQBandGain(index: 0, gain: gain * 0.8)
+        setEQBandGain(index: 1, gain: gain)
     }
     
-    // Real-Time EQ Band Update
     public func setEQBandGain(index: Int, gain: Float) {
         guard index >= 0 && index < eqBands.count else { return }
         eqBands[index].gain = gain
         eqNode.bands[index].gain = gain
     }
     
-    // Real-Time Preset Application
     public func applyPreset(_ preset: DSPPreset) {
         currentPreset = preset
         let impact = UIImpactFeedbackGenerator(style: .light)
@@ -176,7 +162,7 @@ public final class AudioDSPEngine: ObservableObject {
             reverbNode.loadFactoryPreset(.mediumHall)
             reverbNode.wetDryMix = 65.0
             reverbWetDryMix = 65.0
-            setEQBandGain(index: 1, gain: 4.0)
+            setEQBandGain(index: 1, gain: 4.5)
             setEQBandGain(index: 8, gain: 4.0)
             
         case .superBass:
@@ -191,7 +177,6 @@ public final class AudioDSPEngine: ObservableObject {
             reverbNode.loadFactoryPreset(.largeHall)
             reverbNode.wetDryMix = 25.0
             reverbWetDryMix = 25.0
-            // V-Shape curve
             setEQBandGain(index: 0, gain: 6.0)
             setEQBandGain(index: 1, gain: 5.0)
             setEQBandGain(index: 2, gain: 2.0)
@@ -233,7 +218,6 @@ public final class AudioDSPEngine: ObservableObject {
         }
     }
     
-    // Time Alignment (Listening Position)
     public func setPosition(_ position: ListeningPosition) {
         listeningPosition = position
         audioEngine.mainMixerNode.pan = position.balancePan
@@ -241,7 +225,6 @@ public final class AudioDSPEngine: ObservableObject {
         impact.impactOccurred()
     }
     
-    // Playback Controls
     public func togglePlayPause() {
         if isPlaying {
             pause()
@@ -260,7 +243,7 @@ public final class AudioDSPEngine: ObservableObject {
             playerNode.scheduleFile(audioFile, at: nil) { [weak self] in
                 Task { @MainActor in
                     if self?.isPlaying == true {
-                        self?.play() // Loop file
+                        self?.play()
                     }
                 }
             }
@@ -279,7 +262,6 @@ public final class AudioDSPEngine: ObservableObject {
         isPlaying = false
     }
     
-    // Load Custom Audio File from Document Picker
     public func loadAudioFile(url: URL) {
         do {
             let file = try AVAudioFile(forReading: url)
@@ -296,10 +278,9 @@ public final class AudioDSPEngine: ObservableObject {
         }
     }
     
-    // Synthesizes a warm high-fidelity audio buffer (Rich warm harmonic acoustic chords)
     private func setupSynthDemoBuffer() {
         let sampleRate: Double = 44100.0
-        let duration: Double = 3.0 // 3-second seamless loop
+        let duration: Double = 3.0
         let frameCount = AVAudioFrameCount(sampleRate * duration)
         
         guard let format = AVAudioFormat(standardFormatWithSampleRate: sampleRate, channels: 2),
@@ -309,7 +290,6 @@ public final class AudioDSPEngine: ObservableObject {
         let leftChannel = buffer.floatChannelData![0]
         let rightChannel = buffer.floatChannelData![1]
         
-        // Frequencies for a lush major 9th chord (C3, G3, B3, D4, E4)
         let chordFreqs: [Double] = [130.81, 196.00, 246.94, 293.66, 329.63]
         
         for frame in 0..<Int(frameCount) {
@@ -321,7 +301,6 @@ public final class AudioDSPEngine: ObservableObject {
                 let panPhase = Double(idx) * 0.4
                 let l = sin(2.0 * .pi * freq * t)
                 let r = sin(2.0 * .pi * freq * t + panPhase)
-                // Add soft harmonics
                 let lHarm = 0.3 * sin(4.0 * .pi * freq * t)
                 let rHarm = 0.3 * sin(4.0 * .pi * freq * t + panPhase)
                 
@@ -329,7 +308,6 @@ public final class AudioDSPEngine: ObservableObject {
                 sampleRight += Float((r + rHarm) * 0.15)
             }
             
-            // Gentle rhythmic low-end pulse (60 BPM)
             let bassPulse = sin(2.0 * .pi * 65.41 * t) * (0.5 + 0.5 * sin(2.0 * .pi * 1.0 * t))
             sampleLeft += Float(bassPulse * 0.2)
             sampleRight += Float(bassPulse * 0.2)
@@ -339,26 +317,5 @@ public final class AudioDSPEngine: ObservableObject {
         }
         
         self.synthBuffer = buffer
-    }
-    
-    // Spectrum Animation
-    private func startSpectrumAnimation() {
-        spectrumTimer = Timer.publish(every: 0.05, on: .main, in: .common)
-            .autoconnect()
-            .sink { [weak self] _ in
-                guard let self = self else { return }
-                if self.isPlaying {
-                    var newLevels: [CGFloat] = []
-                    for i in 0..<16 {
-                        let boostFactor = CGFloat(self.eqBands[min(i, 9)].gain / 12.0)
-                        let base = CGFloat.random(in: 0.25...0.85)
-                        let adjusted = max(0.08, min(1.0, base + boostFactor * 0.3))
-                        newLevels.append(adjusted)
-                    }
-                    self.spectrumLevels = newLevels
-                } else {
-                    self.spectrumLevels = self.spectrumLevels.map { max(0.08, $0 * 0.85) }
-                }
-            }
     }
 }

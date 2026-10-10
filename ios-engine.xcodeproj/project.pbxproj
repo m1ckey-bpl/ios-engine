@@ -23,6 +23,7 @@
 		10010014 /* TimeAlignmentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20010014 /* TimeAlignmentView.swift */; };
 		10010015 /* SpotifyView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20010015 /* SpotifyView.swift */; };
 		10010016 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 20010016 /* Assets.xcassets */; };
+		10010017 /* SpotifyWebView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20010018 /* SpotifyWebView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -44,6 +45,7 @@
 		20010015 /* SpotifyView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpotifyView.swift; sourceTree = "<group>"; };
 		20010016 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		20010017 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		20010018 /* SpotifyWebView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpotifyWebView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -121,6 +123,7 @@
 				20010008 /* PioneerDialKnob.swift */,
 				20010009 /* CarCabinVisualizer.swift */,
 				20010010 /* DocumentPickerView.swift */,
+				20010018 /* SpotifyWebView.swift */,
 			);
 			path = Components;
 			sourceTree = "<group>";
@@ -221,6 +224,7 @@
 				10010013 /* AcousticsView.swift in Sources */,
 				10010014 /* TimeAlignmentView.swift in Sources */,
 				10010015 /* SpotifyView.swift in Sources */,
+				10010017 /* SpotifyWebView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -292,7 +296,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 2.0.0;
+				MARKETING_VERSION = 2.1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.pioneerdsp.app;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = YES;
@@ -318,7 +322,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 2.0.0;
+				MARKETING_VERSION = 2.1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.pioneerdsp.app;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = YES;

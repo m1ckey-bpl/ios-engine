@@ -3,12 +3,13 @@ import SwiftUI
 public struct MainDSPView: View {
     @ObservedObject var dspEngine = AudioDSPEngine.shared
     @State private var showDocPicker: Bool = false
+    @State private var animateHallGlow: Bool = false
     
     public init() {}
     
     public var body: some View {
         ScrollView(showsIndicators: false) {
-            VStack(spacing: 20) {
+            VStack(spacing: 18) {
                 Spacer().frame(height: 6)
                 
                 // Top Header Bar
@@ -57,7 +58,7 @@ public struct MainDSPView: View {
                 }
                 .padding(.horizontal, 20)
                 
-                // Giant Real-Time Concert Hall Toggle Button
+                // Animated Concert Hall Toggle Button
                 Button(action: {
                     dspEngine.toggleConcertHall()
                 }) {
@@ -66,36 +67,44 @@ public struct MainDSPView: View {
                             ZStack {
                                 Circle()
                                     .fill(dspEngine.isConcertHallEnabled ? PioneerColors.amberOrange.opacity(0.25) : Color.white.opacity(0.06))
-                                    .frame(width: 44, height: 44)
+                                    .frame(width: 48, height: 48)
                                 Image(systemName: "building.columns.fill")
-                                    .font(.system(size: 20))
+                                    .font(.system(size: 22))
                                     .foregroundColor(dspEngine.isConcertHallEnabled ? PioneerColors.amberOrange : Color.white.opacity(0.4))
                             }
                             
                             VStack(alignment: .leading, spacing: 3) {
-                                Text("CONCERT HALL ACOUSTICS")
-                                    .font(.system(size: 15, weight: .black, design: .rounded))
-                                    .foregroundColor(.white)
+                                HStack(spacing: 6) {
+                                    Text("CONCERT HALL ACOUSTICS")
+                                        .font(.system(size: 15, weight: .black, design: .rounded))
+                                        .foregroundColor(.white)
+                                    if dspEngine.isConcertHallEnabled {
+                                        Circle()
+                                            .fill(PioneerColors.amberOrange)
+                                            .frame(width: 7, height: 7)
+                                    }
+                                }
                                 
-                                Text(dspEngine.isConcertHallEnabled ? "3D Spatial Reverb Active (Medium Hall)" : "Tap to Engage Concert Hall Acoustics")
+                                Text(dspEngine.isConcertHallEnabled ? "3D Spatial Reverb Active • Live Stage Acoustics" : "Tap to Engage Real-Time Concert Hall Reverb")
                                     .font(.system(size: 11, weight: .medium))
                                     .foregroundColor(dspEngine.isConcertHallEnabled ? PioneerColors.cyberCyan : PioneerColors.textMuted)
                             }
                             
                             Spacer()
                             
-                            // On / Off LED indicator
-                            Text(dspEngine.isConcertHallEnabled ? "ON" : "OFF")
+                            Text(dspEngine.isConcertHallEnabled ? "ACTIVE" : "ENGAGE")
                                 .font(.system(size: 11, weight: .black, design: .monospaced))
-                                .foregroundColor(dspEngine.isConcertHallEnabled ? .black : .white.opacity(0.4))
-                                .padding(.horizontal, 12)
-                                .padding(.vertical, 6)
+                                .foregroundColor(dspEngine.isConcertHallEnabled ? .black : .white)
+                                .padding(.horizontal, 14)
+                                .padding(.vertical, 7)
                                 .background(dspEngine.isConcertHallEnabled ? PioneerColors.amberOrange : Color.white.opacity(0.08))
                                 .cornerRadius(12)
                         }
                     }
                     .padding(16)
                     .pioneerCard(cornerRadius: 18, highlight: dspEngine.isConcertHallEnabled ? PioneerColors.amberOrange : PioneerColors.titaniumCardBorder)
+                    .scaleEffect(dspEngine.isConcertHallEnabled ? 1.01 : 1.0)
+                    .animation(.spring(response: 0.35, dampingFraction: 0.65), value: dspEngine.isConcertHallEnabled)
                 }
                 .padding(.horizontal, 20)
                 
@@ -108,19 +117,19 @@ public struct MainDSPView: View {
                             .font(.system(size: 10, weight: .bold, design: .monospaced))
                             .foregroundColor(PioneerColors.textMuted)
                         Spacer()
-                        Text(dspEngine.isPlaying ? "SIGNAL ACTIVE" : "IDLE")
+                        Text(dspEngine.isPlaying ? "LIVE DSP SIGNAL" : "STANDBY")
                             .font(.system(size: 9, weight: .bold, design: .monospaced))
                             .foregroundColor(dspEngine.isPlaying ? PioneerColors.amberOrange : Color.white.opacity(0.3))
                     }
                     
-                    SpectrumVisualizerView(levels: dspEngine.spectrumLevels)
+                    SpectrumVisualizerView(isPlaying: dspEngine.isPlaying)
                 }
                 .padding(16)
                 .pioneerCard(cornerRadius: 18, highlight: PioneerColors.cyberCyan.opacity(0.4))
                 .padding(.horizontal, 20)
                 
                 // Dual Rotary Dials: Super Bass (Todoroki) & Reverb Wet/Dry
-                HStack(spacing: 20) {
+                HStack(spacing: 16) {
                     VStack {
                         PioneerDialKnob(
                             title: "SUPER BASS",
@@ -191,7 +200,7 @@ public struct MainDSPView: View {
                 .pioneerCard(cornerRadius: 18)
                 .padding(.horizontal, 20)
                 
-                // Now Playing Audio Transport Bar
+                // Audio Player Bar
                 VStack(spacing: 14) {
                     HStack(spacing: 12) {
                         ZStack {
@@ -215,14 +224,13 @@ public struct MainDSPView: View {
                         
                         Spacer()
                         
-                        // Play / Pause Button
                         Button(action: {
                             dspEngine.togglePlayPause()
                         }) {
                             ZStack {
                                 Circle()
                                     .fill(PioneerColors.amberOrange)
-                                    .frame(width: 42, height: 42)
+                                    .frame(width: 44, height: 44)
                                 Image(systemName: dspEngine.isPlaying ? "pause.fill" : "play.fill")
                                     .font(.system(size: 18))
                                     .foregroundColor(.black)
@@ -233,7 +241,6 @@ public struct MainDSPView: View {
                     
                     Divider().background(Color.white.opacity(0.1))
                     
-                    // Import Audio File Button
                     Button(action: {
                         showDocPicker = true
                     }) {

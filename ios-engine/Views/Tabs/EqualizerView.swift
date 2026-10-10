@@ -37,12 +37,43 @@ public struct EqualizerView: View {
                 }
                 .padding(.horizontal, 20)
                 
-                // Sliders Container
+                // Frequency Curve Preview Line
+                GeometryReader { geo in
+                    Path { path in
+                        let step = geo.size.width / CGFloat(max(1, dspEngine.eqBands.count - 1))
+                        let midY = geo.size.height / 2.0
+                        
+                        for (idx, band) in dspEngine.eqBands.enumerated() {
+                            let x = CGFloat(idx) * step
+                            // -12 to +12 dB mapped to Y
+                            let norm = CGFloat(band.gain / 12.0)
+                            let y = midY - (norm * (geo.size.height * 0.4))
+                            
+                            if idx == 0 {
+                                path.move(to: CGPoint(x: x, y: y))
+                            } else {
+                                path.addLine(to: CGPoint(x: x, y: y))
+                            }
+                        }
+                    }
+                    .stroke(
+                        LinearGradient(
+                            colors: [PioneerColors.amberOrange, PioneerColors.cyberCyan],
+                            startPoint: .leading,
+                            endPoint: .trailing
+                        ),
+                        lineWidth: 2.5
+                    )
+                }
+                .frame(height: 50)
+                .padding(.horizontal, 24)
+                
+                // Vertical Faders Container
                 VStack(spacing: 14) {
                     ScrollView(.horizontal, showsIndicators: false) {
-                        HStack(spacing: 16) {
+                        HStack(spacing: 14) {
                             ForEach(0..<dspEngine.eqBands.count, id: \.self) { idx in
-                                EQVerticalFader(
+                                SmoothEQFader(
                                     label: dspEngine.eqBands[idx].label,
                                     gain: Binding(
                                         get: { dspEngine.eqBands[idx].gain },
@@ -52,7 +83,7 @@ public struct EqualizerView: View {
                             }
                         }
                         .padding(.horizontal, 10)
-                        .padding(.vertical, 14)
+                        .padding(.vertical, 12)
                     }
                 }
                 .pioneerCard(cornerRadius: 20, highlight: PioneerColors.cyberCyan.opacity(0.4))
@@ -79,54 +110,50 @@ public struct EqualizerView: View {
     }
 }
 
-struct EQVerticalFader: View {
+struct SmoothEQFader: View {
     let label: String
     @Binding var gain: Float // -12 to +12 dB
     
     var body: some View {
         VStack(spacing: 8) {
-            Text(String(format: "%+.0fdB", gain))
+            Text(String(format: "%+.0f", gain))
                 .font(.system(size: 10, weight: .black, design: .monospaced))
                 .foregroundColor(gain > 0 ? PioneerColors.amberOrange : (gain < 0 ? PioneerColors.cyberCyan : .white.opacity(0.5)))
             
-            // Vertical Slider Bar
+            // Interactive Slider Track
             ZStack(alignment: .bottom) {
                 RoundedRectangle(cornerRadius: 4)
                     .fill(Color.black.opacity(0.6))
-                    .frame(width: 8, height: 160)
+                    .frame(width: 8, height: 150)
                 
-                // Zero center line
                 Rectangle()
                     .fill(Color.white.opacity(0.2))
                     .frame(width: 14, height: 1.5)
-                    .offset(y: -80)
+                    .offset(y: -75)
                 
-                // Slider Handle
+                // Animated Handle
                 Circle()
                     .fill(PioneerColors.amberOrange)
                     .frame(width: 22, height: 22)
                     .overlay(Circle().stroke(Color.white, lineWidth: 2))
-                    .shadow(color: PioneerColors.amberOrange.opacity(0.6), radius: 6)
-                    .offset(y: -CGFloat(normalizeGain(gain)) * 140)
-                    .gesture(
-                        DragGesture(minimumDistance: 0)
-                            .onChanged { g in
-                                let val = Float(-g.translation.height / 140.0) * 24.0
-                                gain = max(-12.0, min(12.0, val))
-                            }
-                    )
+                    .shadow(color: PioneerColors.amberOrange.opacity(0.5), radius: 5)
+                    .offset(y: -CGFloat((gain + 12.0) / 24.0) * 130)
             }
-            .frame(width: 26, height: 160)
+            .frame(width: 28, height: 150)
+            .gesture(
+                DragGesture(minimumDistance: 0)
+                    .onChanged { g in
+                        let locationY = 150 - g.location.y
+                        let clamped = max(0, min(150, locationY))
+                        let normalized = Float(clamped / 150.0)
+                        gain = -12.0 + normalized * 24.0
+                    }
+            )
             
             Text(label)
                 .font(.system(size: 9, weight: .bold, design: .monospaced))
                 .foregroundColor(PioneerColors.textMuted)
         }
         .frame(width: 44)
-    }
-    
-    private func normalizeGain(_ g: Float) -> Float {
-        // -12 -> 0.0, 0 -> 0.5, +12 -> 1.0
-        return (g + 12.0) / 24.0
     }
 }
