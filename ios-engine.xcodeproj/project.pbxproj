@@ -7,35 +7,43 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		10010001 /* iOS_EngineApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20010001 /* iOS_EngineApp.swift */; };
+		10010001 /* PioneerDSPApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20010001 /* PioneerDSPApp.swift */; };
 		10010002 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20010002 /* ContentView.swift */; };
-		10010003 /* LicenseModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20010003 /* LicenseModel.swift */; };
-		10010004 /* LicenseService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20010004 /* LicenseService.swift */; };
-		10010005 /* BackgroundEngineManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20010005 /* BackgroundEngineManager.swift */; };
-		10010006 /* LiquidGlassStyles.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20010006 /* LiquidGlassStyles.swift */; };
-		10010007 /* GlowingButton.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20010007 /* GlowingButton.swift */; };
-		10010008 /* BackgroundMeshView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20010008 /* BackgroundMeshView.swift */; };
-		10010009 /* LockScreenView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20010009 /* LockScreenView.swift */; };
-		10010010 /* DashboardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20010010 /* DashboardView.swift */; };
-		10010011 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 20010011 /* Assets.xcassets */; };
-		10010012 /* DocumentPickerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20010013 /* DocumentPickerView.swift */; };
+		10010003 /* DSPSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20010003 /* DSPSettings.swift */; };
+		10010004 /* AudioDSPEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20010004 /* AudioDSPEngine.swift */; };
+		10010005 /* SpotifyService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20010005 /* SpotifyService.swift */; };
+		10010006 /* PioneerTheme.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20010006 /* PioneerTheme.swift */; };
+		10010007 /* SpectrumVisualizerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20010007 /* SpectrumVisualizerView.swift */; };
+		10010008 /* PioneerDialKnob.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20010008 /* PioneerDialKnob.swift */; };
+		10010009 /* CarCabinVisualizer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20010009 /* CarCabinVisualizer.swift */; };
+		10010010 /* DocumentPickerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20010010 /* DocumentPickerView.swift */; };
+		10010011 /* MainDSPView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20010011 /* MainDSPView.swift */; };
+		10010012 /* EqualizerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20010012 /* EqualizerView.swift */; };
+		10010013 /* AcousticsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20010013 /* AcousticsView.swift */; };
+		10010014 /* TimeAlignmentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20010014 /* TimeAlignmentView.swift */; };
+		10010015 /* SpotifyView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20010015 /* SpotifyView.swift */; };
+		10010016 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 20010016 /* Assets.xcassets */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
 		20010000 /* ios-engine.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "ios-engine.app"; sourceTree = BUILT_PRODUCTS_DIR; };
-		20010001 /* iOS_EngineApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = iOS_EngineApp.swift; sourceTree = "<group>"; };
+		20010001 /* PioneerDSPApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PioneerDSPApp.swift; sourceTree = "<group>"; };
 		20010002 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
-		20010003 /* LicenseModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LicenseModel.swift; sourceTree = "<group>"; };
-		20010004 /* LicenseService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LicenseService.swift; sourceTree = "<group>"; };
-		20010005 /* BackgroundEngineManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BackgroundEngineManager.swift; sourceTree = "<group>"; };
-		20010006 /* LiquidGlassStyles.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LiquidGlassStyles.swift; sourceTree = "<group>"; };
-		20010007 /* GlowingButton.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GlowingButton.swift; sourceTree = "<group>"; };
-		20010008 /* BackgroundMeshView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BackgroundMeshView.swift; sourceTree = "<group>"; };
-		20010009 /* LockScreenView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LockScreenView.swift; sourceTree = "<group>"; };
-		20010010 /* DashboardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DashboardView.swift; sourceTree = "<group>"; };
-		20010011 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
-		20010012 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
-		20010013 /* DocumentPickerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DocumentPickerView.swift; sourceTree = "<group>"; };
+		20010003 /* DSPSettings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DSPSettings.swift; sourceTree = "<group>"; };
+		20010004 /* AudioDSPEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioDSPEngine.swift; sourceTree = "<group>"; };
+		20010005 /* SpotifyService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpotifyService.swift; sourceTree = "<group>"; };
+		20010006 /* PioneerTheme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PioneerTheme.swift; sourceTree = "<group>"; };
+		20010007 /* SpectrumVisualizerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpectrumVisualizerView.swift; sourceTree = "<group>"; };
+		20010008 /* PioneerDialKnob.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PioneerDialKnob.swift; sourceTree = "<group>"; };
+		20010009 /* CarCabinVisualizer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CarCabinVisualizer.swift; sourceTree = "<group>"; };
+		20010010 /* DocumentPickerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DocumentPickerView.swift; sourceTree = "<group>"; };
+		20010011 /* MainDSPView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MainDSPView.swift; sourceTree = "<group>"; };
+		20010012 /* EqualizerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EqualizerView.swift; sourceTree = "<group>"; };
+		20010013 /* AcousticsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AcousticsView.swift; sourceTree = "<group>"; };
+		20010014 /* TimeAlignmentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TimeAlignmentView.swift; sourceTree = "<group>"; };
+		20010015 /* SpotifyView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpotifyView.swift; sourceTree = "<group>"; };
+		20010016 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		20010017 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -60,13 +68,12 @@
 		40010002 /* ios-engine */ = {
 			isa = PBXGroup;
 			children = (
-				20010001 /* iOS_EngineApp.swift */,
-				20010002 /* ContentView.swift */,
+				20010001 /* PioneerDSPApp.swift */,
 				40010004 /* Models */,
 				40010005 /* Services */,
 				40010006 /* Views */,
-				20010011 /* Assets.xcassets */,
-				20010012 /* Info.plist */,
+				20010016 /* Assets.xcassets */,
+				20010017 /* Info.plist */,
 			);
 			path = "ios-engine";
 			sourceTree = "<group>";
@@ -82,7 +89,7 @@
 		40010004 /* Models */ = {
 			isa = PBXGroup;
 			children = (
-				20010003 /* LicenseModel.swift */,
+				20010003 /* DSPSettings.swift */,
 			);
 			path = Models;
 			sourceTree = "<group>";
@@ -90,8 +97,8 @@
 		40010005 /* Services */ = {
 			isa = PBXGroup;
 			children = (
-				20010004 /* LicenseService.swift */,
-				20010005 /* BackgroundEngineManager.swift */,
+				20010004 /* AudioDSPEngine.swift */,
+				20010005 /* SpotifyService.swift */,
 			);
 			path = Services;
 			sourceTree = "<group>";
@@ -99,9 +106,9 @@
 		40010006 /* Views */ = {
 			isa = PBXGroup;
 			children = (
+				20010002 /* ContentView.swift */,
 				40010007 /* Components */,
-				20010009 /* LockScreenView.swift */,
-				20010010 /* DashboardView.swift */,
+				40010008 /* Tabs */,
 			);
 			path = Views;
 			sourceTree = "<group>";
@@ -109,12 +116,25 @@
 		40010007 /* Components */ = {
 			isa = PBXGroup;
 			children = (
-				20010006 /* LiquidGlassStyles.swift */,
-				20010007 /* GlowingButton.swift */,
-				20010008 /* BackgroundMeshView.swift */,
-				20010013 /* DocumentPickerView.swift */,
+				20010006 /* PioneerTheme.swift */,
+				20010007 /* SpectrumVisualizerView.swift */,
+				20010008 /* PioneerDialKnob.swift */,
+				20010009 /* CarCabinVisualizer.swift */,
+				20010010 /* DocumentPickerView.swift */,
 			);
 			path = Components;
+			sourceTree = "<group>";
+		};
+		40010008 /* Tabs */ = {
+			isa = PBXGroup;
+			children = (
+				20010011 /* MainDSPView.swift */,
+				20010012 /* EqualizerView.swift */,
+				20010013 /* AcousticsView.swift */,
+				20010014 /* TimeAlignmentView.swift */,
+				20010015 /* SpotifyView.swift */,
+			);
+			path = Tabs;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -175,7 +195,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				10010011 /* Assets.xcassets in Resources */,
+				10010016 /* Assets.xcassets in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -186,17 +206,21 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				10010001 /* iOS_EngineApp.swift in Sources */,
+				10010001 /* PioneerDSPApp.swift in Sources */,
 				10010002 /* ContentView.swift in Sources */,
-				10010003 /* LicenseModel.swift in Sources */,
-				10010004 /* LicenseService.swift in Sources */,
-				10010005 /* BackgroundEngineManager.swift in Sources */,
-				10010006 /* LiquidGlassStyles.swift in Sources */,
-				10010007 /* GlowingButton.swift in Sources */,
-				10010008 /* BackgroundMeshView.swift in Sources */,
-				10010009 /* LockScreenView.swift in Sources */,
-				10010010 /* DashboardView.swift in Sources */,
-				10010012 /* DocumentPickerView.swift in Sources */,
+				10010003 /* DSPSettings.swift in Sources */,
+				10010004 /* AudioDSPEngine.swift in Sources */,
+				10010005 /* SpotifyService.swift in Sources */,
+				10010006 /* PioneerTheme.swift in Sources */,
+				10010007 /* SpectrumVisualizerView.swift in Sources */,
+				10010008 /* PioneerDialKnob.swift in Sources */,
+				10010009 /* CarCabinVisualizer.swift in Sources */,
+				10010010 /* DocumentPickerView.swift in Sources */,
+				10010011 /* MainDSPView.swift in Sources */,
+				10010012 /* EqualizerView.swift in Sources */,
+				10010013 /* AcousticsView.swift in Sources */,
+				10010014 /* TimeAlignmentView.swift in Sources */,
+				10010015 /* SpotifyView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -268,8 +292,8 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 1.0.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.iosengine.app;
+				MARKETING_VERSION = 2.0.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.pioneerdsp.app;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 5.0;
@@ -294,8 +318,8 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 1.0.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.iosengine.app;
+				MARKETING_VERSION = 2.0.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.pioneerdsp.app;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 5.0;

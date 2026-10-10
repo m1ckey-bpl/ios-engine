@@ -16,15 +16,8 @@ public struct DocumentPickerView: UIViewControllerRepresentable {
     }
     
     public func makeUIViewController(context: Context) -> UIDocumentPickerViewController {
-        let supportedTypes: [UTType] = [
-            .item,
-            .content,
-            .data,
-            .archive,
-            .plainText
-        ]
-        
-        let picker = UIDocumentPickerViewController(forOpeningContentTypes: supportedTypes, asCopy: true)
+        let audioTypes: [UTType] = [.audio, .mp3, .wav, .aiff, .data, .item]
+        let picker = UIDocumentPickerViewController(forOpeningContentTypes: audioTypes, asCopy: true)
         picker.allowsMultipleSelection = false
         picker.shouldShowFileExtensions = true
         picker.delegate = context.coordinator

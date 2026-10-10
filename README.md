@@ -1,69 +1,23 @@
-# iOS Engine ⚡
+# Pioneer DSP 🎵 (Sound Tune Audio Engine)
 
-**iOS Engine** is an advanced mobile utility built with a futuristic **Apple Liquid Glass** gaming UI, device-bound licensing, native file analysis, and persistent background session execution.
-
----
-
-## 🚀 Key Features
-
-* 🪟 **Liquid Glass Gaming Interface**: Ultra-thin frosted glass cards, dynamic glowing cyber cyan and purple neon highlights, and animated fluid mesh loop.
-* 🔐 **Hardware ID (HWID) Licensing**:
-  * Automatically binds each license key to the customer's unique device hardware ID (`identifierForVendor`).
-  * Prevents key sharing across different devices.
-  * Live countdown timer displaying days, hours, minutes, and seconds remaining.
-  * Real-time revocation listener: instantly terminates access with a notification if an admin revokes a key.
-* 📁 **File Manager Importer**:
-  * Native iOS Document Picker integration to import binaries, configs, and environment profiles.
-  * Real-time file inspection: File size, type, and SHA-256 cryptographic checksum calculation.
-* ⚡ **Persistent Background Environment**:
-  * Silent background audio keep-alive and background task runner to keep the engine active when minimized.
-  * Live diagnostic telemetry console streaming background events.
+**Pioneer DSP** is a professional iOS high-fidelity audio acoustic tuning application inspired by Pioneer's **Sound Tune** car audio system. It features genuine real-time DSP effects, Concert Hall 3D spatial reverberation, a 10-band graphic equalizer, Time Alignment car cabin focus, and Spotify companion controls.
 
 ---
 
-## 🧪 Built-in Test Keys (Out of the Box)
+## ⚡ Highlights
 
-| Key | Tier | Validity | Features |
-|---|---|---|---|
-| `VIP-GAMER-2026` | Pro VIP | 30 Days | Full access, auto-HWID lock, countdown |
-| `ENGINE-TRIAL-7D` | Trial VIP | 7 Days | Full access, auto-HWID lock, countdown |
-| `TEST-REVOKED-KEY` | Revoked | N/A | Demonstrates instant revocation popup |
-
----
-
-## 🛠️ Compiling & Installing
-
-1. **GitHub Actions**:
-   This repository compiles the unsigned `.ipa` automatically on every push via `build-ipa.yml` using a hosted macOS runner.
-2. **Download**:
-   Go to the **Actions** tab or **Releases** tab and download `iOS_Engine_unsigned.ipa`.
-3. **Sign & Sideload**:
-   Sign the `.ipa` using your preferred tool:
-   - **Sideloadly** (Windows / macOS)
-   - **AltStore**
-   - **ESign / Scarlet**
-   - **TrollStore** (Direct install without revokes)
+* 🏛️ **Concert Hall Real-Time Reverb**: 1-tap real-time toggle that transforms your sound into a massive 3D acoustic concert hall.
+* 🎚️ **10-Band Graphic Equalizer**: Parametric faders from 31Hz to 16kHz with instant curve preview and Flat reset.
+* 🔊 **Super Bass (Todoroki)**: Pioneer signature rotary dial sub-bass booster (+12dB).
+* 🚗 **Time Alignment (Listening Position)**: Interactive car cabin selector calibrating acoustic focus for Driver, Passenger, Front, or All Seats.
+* 🟢 **Spotify Companion**: Launch and tune Spotify audio with live background DSP support.
+* 📁 **Universal Audio File Importer**: Import MP3, WAV, FLAC, and AAC files directly from iOS Files app or iCloud.
+* 📊 **Real-Time Spectrum Analyzer**: 16-band bouncing LED frequency analyzer with live signal meters.
+* 🆓 **100% Free**: Zero keys, zero lockouts, instant access out of the box!
 
 ---
 
-## 🌐 Connecting Custom Firebase Database
+## 📱 How to Install
 
-In `ios-engine/Services/LicenseService.swift`, set your Firebase Realtime Database URL:
-```swift
-public var firebaseDbURL: String = "https://your-firebase-project.firebaseio.com"
-```
-Database JSON structure:
-```json
-{
-  "licenses": {
-    "VIP-GAMER-2026": {
-      "key": "VIP-GAMER-2026",
-      "customerName": "John Doe",
-      "deviceId": "DEVICE-UUID-OR-NULL",
-      "expiresAt": 1791600000,
-      "status": "ACTIVE",
-      "totalDays": 30
-    }
-  }
-}
-```
+1. Download **`Pioneer_DSP_unsigned.ipa`** from the [Releases](https://github.com/m1ckey-bpl/ios-engine/releases) tab.
+2. Sign using **Sideloadly**, **AltStore**, **ESign**, **Scarlet**, or install via **TrollStore**.
