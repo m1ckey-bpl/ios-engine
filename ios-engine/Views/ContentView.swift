@@ -16,17 +16,20 @@ public struct ContentView: View {
                     MainDSPView()
                         .tag(0)
                     
-                    EqualizerView()
+                    LibraryView()
                         .tag(1)
                     
-                    AcousticsView()
+                    SpotifyView()
                         .tag(2)
                     
-                    TimeAlignmentView()
+                    EqualizerView()
                         .tag(3)
                     
-                    SpotifyView()
+                    AcousticsView()
                         .tag(4)
+                    
+                    TimeAlignmentView()
+                        .tag(5)
                 }
                 .tabViewStyle(PageTabViewStyle(indexDisplayMode: .never))
                 
@@ -35,21 +38,24 @@ public struct ContentView: View {
                     TabPill(icon: "slider.horizontal.3", title: "TUNER", isSelected: selectedTab == 0) {
                         selectedTab = 0
                     }
-                    TabPill(icon: "waveform", title: "EQ", isSelected: selectedTab == 1) {
+                    TabPill(icon: "music.note.list", title: "LIBRARY", isSelected: selectedTab == 1) {
                         selectedTab = 1
                     }
-                    TabPill(icon: "building.columns.fill", title: "ACOUSTICS", isSelected: selectedTab == 2) {
+                    TabPill(icon: "music.note", title: "SPOTIFY", isSelected: selectedTab == 2) {
                         selectedTab = 2
                     }
-                    TabPill(icon: "car.fill", title: "POSITION", isSelected: selectedTab == 3) {
+                    TabPill(icon: "waveform", title: "EQ", isSelected: selectedTab == 3) {
                         selectedTab = 3
                     }
-                    TabPill(icon: "music.note", title: "SPOTIFY", isSelected: selectedTab == 4) {
+                    TabPill(icon: "building.columns.fill", title: "HALL", isSelected: selectedTab == 4) {
                         selectedTab = 4
                     }
+                    TabPill(icon: "car.fill", title: "CABIN", isSelected: selectedTab == 5) {
+                        selectedTab = 5
+                    }
                 }
-                .padding(.vertical, 10)
-                .padding(.horizontal, 8)
+                .padding(.vertical, 8)
+                .padding(.horizontal, 4)
                 .background(
                     PioneerColors.titaniumCard
                         .overlay(
@@ -77,17 +83,17 @@ struct TabPill: View {
             impact.impactOccurred()
             action()
         }) {
-            VStack(spacing: 4) {
+            VStack(spacing: 3) {
                 Image(systemName: icon)
-                    .font(.system(size: 16, weight: isSelected ? .bold : .regular))
+                    .font(.system(size: 15, weight: isSelected ? .black : .regular))
                     .foregroundColor(isSelected ? PioneerColors.amberOrange : PioneerColors.textMuted)
                 
                 Text(title)
-                    .font(.system(size: 9, weight: isSelected ? .black : .bold, design: .monospaced))
+                    .font(.system(size: 8, weight: isSelected ? .black : .bold, design: .monospaced))
                     .foregroundColor(isSelected ? .white : PioneerColors.textMuted)
             }
             .frame(maxWidth: .infinity)
-            .padding(.vertical, 6)
+            .padding(.vertical, 4)
         }
     }
 }

@@ -2,8 +2,8 @@ import SwiftUI
 
 public struct MainDSPView: View {
     @ObservedObject var dspEngine = AudioDSPEngine.shared
-    @State private var showDocPicker: Bool = false
-    @State private var animateHallGlow: Bool = false
+    @ObservedObject var libraryManager = MusicLibraryManager.shared
+    @State private var showMultiPicker: Bool = false
     
     public init() {}
     
@@ -200,14 +200,14 @@ public struct MainDSPView: View {
                 .pioneerCard(cornerRadius: 18)
                 .padding(.horizontal, 20)
                 
-                // Audio Player Bar
+                // Connected Music Player Dock (Connected to Library & Zero-Glitch Engine)
                 VStack(spacing: 14) {
                     HStack(spacing: 12) {
                         ZStack {
                             RoundedRectangle(cornerRadius: 10)
                                 .fill(Color.white.opacity(0.08))
                                 .frame(width: 44, height: 44)
-                            Image(systemName: dspEngine.hasCustomFileLoaded ? "music.note" : "waveform.path")
+                            Image(systemName: "music.note")
                                 .foregroundColor(PioneerColors.amberOrange)
                         }
                         
@@ -224,30 +224,50 @@ public struct MainDSPView: View {
                         
                         Spacer()
                         
-                        Button(action: {
-                            dspEngine.togglePlayPause()
-                        }) {
-                            ZStack {
-                                Circle()
-                                    .fill(PioneerColors.amberOrange)
-                                    .frame(width: 44, height: 44)
-                                Image(systemName: dspEngine.isPlaying ? "pause.fill" : "play.fill")
-                                    .font(.system(size: 18))
-                                    .foregroundColor(.black)
+                        // Previous, Play/Pause, Next Controls
+                        HStack(spacing: 14) {
+                            Button(action: {
+                                libraryManager.playPrevious()
+                            }) {
+                                Image(systemName: "backward.fill")
+                                    .font(.system(size: 15))
+                                    .foregroundColor(Color.white.opacity(0.7))
                             }
-                            .shadow(color: PioneerColors.amberOrange.opacity(0.4), radius: 6)
+                            
+                            Button(action: {
+                                dspEngine.togglePlayPause()
+                            }) {
+                                ZStack {
+                                    Circle()
+                                        .fill(PioneerColors.amberOrange)
+                                        .frame(width: 42, height: 42)
+                                    Image(systemName: dspEngine.isPlaying ? "pause.fill" : "play.fill")
+                                        .font(.system(size: 18))
+                                        .foregroundColor(.black)
+                                }
+                                .shadow(color: PioneerColors.amberOrange.opacity(0.4), radius: 6)
+                            }
+                            
+                            Button(action: {
+                                libraryManager.playNext()
+                            }) {
+                                Image(systemName: "forward.fill")
+                                    .font(.system(size: 15))
+                                    .foregroundColor(Color.white.opacity(0.7))
+                            }
                         }
                     }
                     
                     Divider().background(Color.white.opacity(0.1))
                     
+                    // Import Multi-Song Library Button
                     Button(action: {
-                        showDocPicker = true
+                        showMultiPicker = true
                     }) {
-                        HStack {
+                        HStack(spacing: 8) {
                             Image(systemName: "folder.badge.plus")
                                 .foregroundColor(PioneerColors.cyberCyan)
-                            Text("IMPORT AUDIO FILE (MP3 / WAV / FLAC)")
+                            Text("IMPORT MULTIPLE SONGS TO LIBRARY")
                                 .font(.system(size: 11, weight: .bold, design: .monospaced))
                                 .foregroundColor(PioneerColors.cyberCyan)
                         }
@@ -264,12 +284,12 @@ public struct MainDSPView: View {
                 Spacer().frame(height: 30)
             }
         }
-        .sheet(isPresented: $showDocPicker) {
-            DocumentPickerView(onPick: { url in
-                dspEngine.loadAudioFile(url: url)
-                showDocPicker = false
+        .sheet(isPresented: $showMultiPicker) {
+            DocumentPickerView(allowsMultipleSelection: true, onPick: { urls in
+                libraryManager.addSongs(from: urls)
+                showMultiPicker = false
             }, onCancel: {
-                showDocPicker = false
+                showMultiPicker = false
             })
             .ignoresSafeArea()
         }

@@ -15,9 +15,12 @@ public final class AudioDSPEngine: ObservableObject {
     @Published public var reverbWetDryMix: Float = 0.0 // 0 to 100%
     @Published public var superBassGain: Float = 0.0 // 0 to 12 dB
     @Published public var listeningPosition: ListeningPosition = .all
-    @Published public var trackTitle: String = "Pioneer Hi-Fi Master Loop"
-    @Published public var trackArtist: String = "Pioneer Sound Tune Studio"
-    @Published public var hasCustomFileLoaded: Bool = false
+    
+    // Track & Time Information
+    @Published public var trackTitle: String = "Concert Hall Acoustic Master"
+    @Published public var trackArtist: String = "Pioneer Philharmonic Studio"
+    @Published public var currentTime: TimeInterval = 0.0
+    @Published public var totalDuration: TimeInterval = 180.0
     
     // 10-Band EQ
     @Published public var eqBands: [EQBand] = [
@@ -38,8 +41,11 @@ public final class AudioDSPEngine: ObservableObject {
     private var playerNode: AVAudioPlayerNode
     private var eqNode: AVAudioUnitEQ
     private var reverbNode: AVAudioUnitReverb
-    private var currentAudioFile: AVAudioFile?
-    private var synthBuffer: AVAudioPCMBuffer?
+    
+    // Memory Buffer Cache (Prevents pause/play glitch)
+    private var activePCMBuffer: AVAudioPCMBuffer?
+    private var isPausedState: Bool = false
+    private var playbackTimer: AnyCancellable?
     
     public init() {
         self.audioEngine = AVAudioEngine()
@@ -50,7 +56,8 @@ public final class AudioDSPEngine: ObservableObject {
         setupAudioSession()
         setupEngineGraph()
         setupEQParameters()
-        setupSynthDemoBuffer()
+        loadBuiltInDemo(title: "Concert Hall Acoustic Master", artist: "Pioneer Philharmonic Studio", duration: 180)
+        startPlaybackClock()
     }
     
     private func setupAudioSession() {
@@ -94,6 +101,132 @@ public final class AudioDSPEngine: ObservableObject {
         }
     }
     
+    // FIXED PAUSE / PLAY LOGIC (Zero Glitch)
+    public func togglePlayPause() {
+        if isPlaying {
+            pause()
+        } else {
+            play()
+        }
+    }
+    
+    public func play() {
+        if !audioEngine.isRunning {
+            try? audioEngine.start()
+        }
+        
+        if isPausedState {
+            // RESUME from exact paused location (DO NOT STOP OR RESCHEDULE)
+            playerNode.play()
+            isPausedState = false
+            isPlaying = true
+        } else {
+            // Fresh playback start
+            startFreshBufferPlayback()
+        }
+    }
+    
+    public func pause() {
+        playerNode.pause()
+        isPausedState = true
+        isPlaying = false
+    }
+    
+    private func startFreshBufferPlayback() {
+        guard let buffer = activePCMBuffer else { return }
+        playerNode.stop()
+        playerNode.scheduleBuffer(buffer, at: nil, options: .loops, completionHandler: nil)
+        playerNode.play()
+        isPausedState = false
+        isPlaying = true
+    }
+    
+    // Load Custom Audio File into PCM Buffer
+    public func loadAudioFile(url: URL, title: String? = nil, artist: String? = nil, duration: TimeInterval = 180) {
+        do {
+            let file = try AVAudioFile(forReading: url)
+            let format = file.processingFormat
+            let frameCount = AVAudioFrameCount(file.length)
+            guard let buffer = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: frameCount) else { return }
+            try file.read(into: buffer)
+            
+            self.activePCMBuffer = buffer
+            self.trackTitle = title ?? url.deletingPathExtension().lastPathComponent
+            self.trackArtist = artist ?? "Imported Track"
+            self.totalDuration = duration > 0 ? duration : Double(file.length) / format.sampleRate
+            self.currentTime = 0.0
+            self.isPausedState = false
+            
+            if isPlaying {
+                startFreshBufferPlayback()
+            }
+        } catch {
+            print("Failed to read audio file into buffer: \(error)")
+        }
+    }
+    
+    // Load Built-In Demo Synthesizer
+    public func loadBuiltInDemo(title: String, artist: String, duration: TimeInterval) {
+        self.trackTitle = title
+        self.trackArtist = artist
+        self.totalDuration = duration
+        self.currentTime = 0.0
+        self.isPausedState = false
+        
+        let sampleRate: Double = 44100.0
+        let loopDuration: Double = 3.5
+        let frameCount = AVAudioFrameCount(sampleRate * loopDuration)
+        
+        guard let format = AVAudioFormat(standardFormatWithSampleRate: sampleRate, channels: 2),
+              let buffer = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: frameCount) else { return }
+        
+        buffer.frameLength = frameCount
+        let left = buffer.floatChannelData![0]
+        let right = buffer.floatChannelData![1]
+        
+        let chordFreqs = [130.81, 196.00, 246.94, 293.66, 329.63, 392.00]
+        for f in 0..<Int(frameCount) {
+            let t = Double(f) / sampleRate
+            var sl: Float = 0.0
+            var sr: Float = 0.0
+            for (idx, freq) in chordFreqs.enumerated() {
+                let phase = Double(idx) * 0.35
+                let valL = sin(2.0 * .pi * freq * t) + 0.3 * sin(4.0 * .pi * freq * t)
+                let valR = sin(2.0 * .pi * freq * t + phase) + 0.3 * sin(4.0 * .pi * freq * t + phase)
+                sl += Float(valL * 0.12)
+                sr += Float(valR * 0.12)
+            }
+            let pulse = sin(2.0 * .pi * 65.41 * t) * (0.5 + 0.5 * sin(2.0 * .pi * 1.2 * t))
+            sl += Float(pulse * 0.22)
+            sr += Float(pulse * 0.22)
+            left[f] = sl
+            right[f] = sr
+        }
+        
+        self.activePCMBuffer = buffer
+        if isPlaying {
+            startFreshBufferPlayback()
+        }
+    }
+    
+    // Real-Time Clock
+    private func startPlaybackClock() {
+        playbackTimer = Timer.publish(every: 1.0, on: .main, in: .common)
+            .autoconnect()
+            .sink { [weak self] _ in
+                guard let self = self, self.isPlaying else { return }
+                self.currentTime += 1.0
+                if self.currentTime >= self.totalDuration {
+                    self.currentTime = 0.0
+                }
+            }
+    }
+    
+    public func seek(to progress: Double) {
+        self.currentTime = max(0, min(totalDuration, totalDuration * progress))
+    }
+    
+    // DSP Controls
     public func toggleConcertHall() {
         isConcertHallEnabled.toggle()
         let impact = UIImpactFeedbackGenerator(style: .medium)
@@ -105,9 +238,9 @@ public final class AudioDSPEngine: ObservableObject {
             reverbWetDryMix = 65.0
             reverbNode.wetDryMix = 65.0
             
-            setEQBandGain(index: 1, gain: 4.5) // 63Hz
-            setEQBandGain(index: 8, gain: 3.5) // 8kHz
-            setEQBandGain(index: 9, gain: 4.0) // 16kHz
+            setEQBandGain(index: 1, gain: 4.5)
+            setEQBandGain(index: 8, gain: 3.5)
+            setEQBandGain(index: 9, gain: 4.0)
         } else {
             reverbWetDryMix = 0.0
             reverbNode.wetDryMix = 0.0
@@ -223,99 +356,5 @@ public final class AudioDSPEngine: ObservableObject {
         audioEngine.mainMixerNode.pan = position.balancePan
         let impact = UIImpactFeedbackGenerator(style: .medium)
         impact.impactOccurred()
-    }
-    
-    public func togglePlayPause() {
-        if isPlaying {
-            pause()
-        } else {
-            play()
-        }
-    }
-    
-    public func play() {
-        if !audioEngine.isRunning {
-            try? audioEngine.start()
-        }
-        
-        if let audioFile = currentAudioFile {
-            playerNode.stop()
-            playerNode.scheduleFile(audioFile, at: nil) { [weak self] in
-                Task { @MainActor in
-                    if self?.isPlaying == true {
-                        self?.play()
-                    }
-                }
-            }
-            playerNode.play()
-        } else if let buffer = synthBuffer {
-            playerNode.stop()
-            playerNode.scheduleBuffer(buffer, at: nil, options: .loops)
-            playerNode.play()
-        }
-        
-        isPlaying = true
-    }
-    
-    public func pause() {
-        playerNode.pause()
-        isPlaying = false
-    }
-    
-    public func loadAudioFile(url: URL) {
-        do {
-            let file = try AVAudioFile(forReading: url)
-            self.currentAudioFile = file
-            self.hasCustomFileLoaded = true
-            self.trackTitle = url.deletingPathExtension().lastPathComponent
-            self.trackArtist = "Imported Audio Track"
-            
-            if isPlaying {
-                play()
-            }
-        } catch {
-            print("Failed to load audio file: \(error)")
-        }
-    }
-    
-    private func setupSynthDemoBuffer() {
-        let sampleRate: Double = 44100.0
-        let duration: Double = 3.0
-        let frameCount = AVAudioFrameCount(sampleRate * duration)
-        
-        guard let format = AVAudioFormat(standardFormatWithSampleRate: sampleRate, channels: 2),
-              let buffer = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: frameCount) else { return }
-        
-        buffer.frameLength = frameCount
-        let leftChannel = buffer.floatChannelData![0]
-        let rightChannel = buffer.floatChannelData![1]
-        
-        let chordFreqs: [Double] = [130.81, 196.00, 246.94, 293.66, 329.63]
-        
-        for frame in 0..<Int(frameCount) {
-            let t = Double(frame) / sampleRate
-            var sampleLeft: Float = 0.0
-            var sampleRight: Float = 0.0
-            
-            for (idx, freq) in chordFreqs.enumerated() {
-                let panPhase = Double(idx) * 0.4
-                let l = sin(2.0 * .pi * freq * t)
-                let r = sin(2.0 * .pi * freq * t + panPhase)
-                let lHarm = 0.3 * sin(4.0 * .pi * freq * t)
-                let rHarm = 0.3 * sin(4.0 * .pi * freq * t + panPhase)
-                
-                sampleLeft += Float((l + lHarm) * 0.15)
-                sampleRight += Float((r + rHarm) * 0.15)
-            }
-            
-            let bassPulse = sin(2.0 * .pi * 65.41 * t) * (0.5 + 0.5 * sin(2.0 * .pi * 1.0 * t))
-            sampleLeft += Float(bassPulse * 0.2)
-            sampleRight += Float(bassPulse * 0.2)
-            
-            leftChannel[frame] = sampleLeft
-            rightChannel[frame] = sampleRight
-        }
-        
-        self.synthBuffer = buffer
     }
 }
