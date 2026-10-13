@@ -50,40 +50,39 @@ jobs:
         uses: softprops/action-gh-release@v2
         if: github.ref == 'refs/heads/main'
         with:
-          tag_name: v3.2.0
-          name: "Pioneer DSP v3.2.0 (Master Edition — Complete Music Player & DSP Engine)"
+          tag_name: v4.0.0
+          name: "Pioneer DSP v4.0.0 (Master Redesign Edition — 5-Tab Dark UI, Audible DSP & Spotify Integration)"
           body: |
-            ## 🎵 Pioneer DSP v3.2.0 — Complete Android Music Player, Spotify Hub & DSP Engine
-
+            ## 🎵 Pioneer DSP v4.0.0 — Master Redesign Edition
+            
             ### 📦 Direct Downloads:
-            * 🤖 **Android**: `Pioneer_DSP.apk` (Direct install on Android phone, 100% free)
+            * 🤖 **Android**: `Pioneer_DSP.apk` (Direct install on Android device)
             * 🪟 **Windows**: `Pioneer_DSP_Windows.zip` (1-Click standalone desktop application)
             * 📱 **iOS**: `Pioneer_DSP_unsigned.ipa` (Sideloadable IPA)
 
-            ### 🚀 Highlights in Master Edition v3.2.0:
-            1. **Fixed JSON & Spotify Errors**:
-               - Handled HTTP 204 No Content without parsing empty JSON.
-               - Defensive JSON parsing resolving `"Unexpected token 'C'... is not valid JSON"` issues.
-               - Integrated Spotify Connect device discovery (`/v1/me/player/devices`) and active device transfer resolving `"Player command failed: No active device found"`.
-            2. **Complete In-App Spotify Integration**:
-               - In-app playback control dashboard (artwork, title, artist, play/pause, prev/next, seek bar, volume, shuffle, repeat).
-               - Spotify device switcher chips.
-               - Spotify live search for tracks & artists.
-               - Personal playlists browsing and context playback.
-            3. **Automatic Android MediaStore Music Discovery**:
-               - Native MediaStore audio scanner querying `EXTERNAL_CONTENT_URI` with modern Android permissions (`READ_MEDIA_AUDIO` / `READ_EXTERNAL_STORAGE`).
-               - Filter local tracks by Title, Artist, and Album with instant search.
-            4. **Local Network Audio & HTTP/HTTPS Streaming**:
-               - Direct streaming of local PC/NAS media servers and online HTTP/HTTPS streams.
-               - Stream audio routes directly through the 10-band EQ, Todoroki Super Bass, and Reverb engine.
-               - Curated lossless audiophile stream presets + custom saved streams list.
-            5. **100% Removal of Demo Audio & Synthetic Chords**:
-               - Removed all hardcoded synthetic demo songs and test math tones.
-               - Clean, honest empty-state UI with 1-tap "Scan Device Audio".
-            6. **Unified 9-Section Cockpit UI**:
-               - Home, Spotify, Local Music, Network Music, Now Playing, Equalizer, Audio Effects, Presets, Settings.
-               - Source indicator badge (`LOCAL AUDIO`, `NETWORK STREAM`, `SPOTIFY REMOTE`).
-               - Full-screen Now Playing screen and persistent mini-dock.
+            ### 🚀 Highlights in Master Redesign v4.0.0:
+            1. **Complete UI Redesign**:
+               - Sophisticated obsidian dark interface (`#080a0f`, `#10141d`, `#181d29`).
+               - Clean 5-Tab Ergonomic Navigation (`Home`, `Search`, `Library`, `Equalizer`, `Settings`).
+               - Persistent Mini-Player Dock on every tab with real-time progress bar.
+               - Dedicated Full-Screen Now Playing Screen with large album artwork, smooth seek scrub bar, shuffle, repeat, and quick DSP toggles.
+               - Zero emoji clutter — 100% modern, sharp SVG iconography.
+            2. **Completely Removed Network Stream**:
+               - All Network Stream tabs, buttons, inputs, and unused streaming code completely removed as requested.
+            3. **Real Audible Audio DSP Engine**:
+               - Fixed Convolver bug: Disabled auto L2-normalization so Concert Hall, Room, Studio, and Arena reverbs are vividly and unmistakably audible.
+               - Dual-stage Todoroki Super Bass (80Hz low-shelf + 60Hz punch peak, up to +14dB).
+               - Deep Sub-Bass (35Hz foundation, up to +12dB).
+               - Refined Dynamics Limiter: Soft 6dB musical knee at -1.0dB ceiling prevents clipping distortion without dynamic volume pumping.
+            4. **Spotify Search & Playback Repair**:
+               - Debounced live search across Spotify (Tracks, Artists, Albums, Playlists) and local files.
+               - Robust playback control via active Spotify Connect devices.
+               - Defensive HTTP 204 No Content handling preventing JSON parse exceptions.
+               - Transparent policy disclosure: Local tracks process in real time via 32-bit float Pioneer DSP, while Spotify streams route via Spotify Connect.
+            5. **Permanent Local Music Library**:
+               - Local tracks persisted in IndexedDB and metadata cache — tracks never vanish on reboot.
+               - Automatic MediaStore scanning on startup with modern Android permissions.
+               - Accurate 100ms playback clock and seek scrubber for both Local and Spotify audio.
 
             ### ✨ Major Capabilities in v3.0.0:
             1. **Legitimate Spotify PKCE OAuth & Web API Integration**:

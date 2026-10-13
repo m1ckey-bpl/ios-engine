@@ -476,13 +476,15 @@ class SpotifyPKCEService {
   }
 
   // Spotify Search API
-  async search(query, types = 'track,artist') {
-    if (!query || !query.trim()) return { tracks: [], artists: [] };
+  async search(query, types = 'track,artist,album,playlist') {
+    if (!query || !query.trim()) return { tracks: [], artists: [], albums: [], playlists: [] };
     const q = encodeURIComponent(query.trim());
     const data = await this.apiRequest(`/search?q=${q}&type=${types}&limit=20`);
     return {
       tracks: (data && data.tracks && data.tracks.items) ? data.tracks.items : [],
-      artists: (data && data.artists && data.artists.items) ? data.artists.items : []
+      artists: (data && data.artists && data.artists.items) ? data.artists.items : [],
+      albums: (data && data.albums && data.albums.items) ? data.albums.items : [],
+      playlists: (data && data.playlists && data.playlists.items) ? data.playlists.items : []
     };
   }
 

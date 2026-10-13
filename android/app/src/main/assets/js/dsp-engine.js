@@ -1,9 +1,10 @@
 // Pioneer DSP - Sound Tune Audio Processing Engine & Persistent Local Storage
-// Completely Free of Demo Audio, Placeholders, and Synthetic Chords
+// Master Redesign Edition v4.0.0
+// Real-Time 32-bit Floating Point Audio Processing & Hardware-Accelerated Acoustics
 
 class PioneerAudioDB {
   constructor() {
-    this.dbName = 'PioneerDSP_Storage_v3';
+    this.dbName = 'PioneerDSP_Storage_v4';
     this.version = 1;
     this.db = null;
   }
@@ -16,9 +17,6 @@ class PioneerAudioDB {
         const db = e.target.result;
         if (!db.objectStoreNames.contains('songs')) {
           db.createObjectStore('songs', { keyPath: 'id' });
-        }
-        if (!db.objectStoreNames.contains('streams')) {
-          db.createObjectStore('streams', { keyPath: 'id' });
         }
       };
       request.onsuccess = (e) => {
@@ -33,69 +31,95 @@ class PioneerAudioDB {
   }
 
   async saveSong(song) {
-    const db = await this.open();
-    return new Promise((resolve, reject) => {
-      const tx = db.transaction('songs', 'readwrite');
-      const store = tx.objectStore('songs');
-      const req = store.put(song);
-      req.onsuccess = () => resolve(true);
-      req.onerror = (e) => reject(e);
-    });
+    try {
+      const db = await this.open();
+      await new Promise((resolve, reject) => {
+        const tx = db.transaction('songs', 'readwrite');
+        const store = tx.objectStore('songs');
+        const req = store.put(song);
+        req.onsuccess = () => resolve(true);
+        req.onerror = (e) => reject(e);
+      });
+      this.syncMetadataCache();
+      return true;
+    } catch(e) {
+      console.warn('DB saveSong warning:', e);
+      return false;
+    }
   }
 
   async getAllSongs() {
-    const db = await this.open();
-    return new Promise((resolve, reject) => {
-      const tx = db.transaction('songs', 'readonly');
-      const store = tx.objectStore('songs');
-      const req = store.getAll();
-      req.onsuccess = () => resolve(req.result || []);
-      req.onerror = (e) => reject(e);
-    });
+    try {
+      const db = await this.open();
+      const songs = await new Promise((resolve, reject) => {
+        const tx = db.transaction('songs', 'readonly');
+        const store = tx.objectStore('songs');
+        const req = store.getAll();
+        req.onsuccess = () => resolve(req.result || []);
+        req.onerror = (e) => reject(e);
+      });
+
+      if (songs && songs.length > 0) {
+        return songs;
+      }
+      return this.getMetadataCache();
+    } catch(e) {
+      console.warn('DB getAllSongs error, falling back to cache:', e);
+      return this.getMetadataCache();
+    }
   }
 
   async deleteSong(id) {
-    const db = await this.open();
-    return new Promise((resolve, reject) => {
+    try {
+      const db = await this.open();
+      await new Promise((resolve, reject) => {
+        const tx = db.transaction('songs', 'readwrite');
+        const store = tx.objectStore('songs');
+        const req = store.delete(id);
+        req.onsuccess = () => resolve(true);
+        req.onerror = (e) => reject(e);
+      });
+      this.syncMetadataCache();
+      return true;
+    } catch(e) {
+      return false;
+    }
+  }
+
+  async clearAll() {
+    try {
+      const db = await this.open();
       const tx = db.transaction('songs', 'readwrite');
-      const store = tx.objectStore('songs');
-      const req = store.delete(id);
-      req.onsuccess = () => resolve(true);
-      req.onerror = (e) => reject(e);
-    });
+      tx.objectStore('songs').clear();
+      localStorage.removeItem('pioneer_songs_cache_v4');
+    } catch(e) {}
   }
 
-  async saveStream(stream) {
-    const db = await this.open();
-    return new Promise((resolve, reject) => {
-      const tx = db.transaction('streams', 'readwrite');
-      const store = tx.objectStore('streams');
-      const req = store.put(stream);
-      req.onsuccess = () => resolve(true);
-      req.onerror = (e) => reject(e);
-    });
+  syncMetadataCache() {
+    try {
+      if (!window.dspEngine || !window.dspEngine.songs) return;
+      const stripped = window.dspEngine.songs.map(s => ({
+        id: s.id,
+        title: s.title,
+        artist: s.artist,
+        album: s.album,
+        duration: s.duration || 0,
+        fileSize: s.fileSize || '',
+        contentUri: s.contentUri || '',
+        albumId: s.albumId || 0,
+        addedAt: s.addedAt || Date.now()
+      }));
+      localStorage.setItem('pioneer_songs_cache_v4', JSON.stringify(stripped));
+    } catch(e) {}
   }
 
-  async getAllStreams() {
-    const db = await this.open();
-    return new Promise((resolve, reject) => {
-      const tx = db.transaction('streams', 'readonly');
-      const store = tx.objectStore('streams');
-      const req = store.getAll();
-      req.onsuccess = () => resolve(req.result || []);
-      req.onerror = (e) => reject(e);
-    });
-  }
-
-  async deleteStream(id) {
-    const db = await this.open();
-    return new Promise((resolve, reject) => {
-      const tx = db.transaction('streams', 'readwrite');
-      const store = tx.objectStore('streams');
-      const req = store.delete(id);
-      req.onsuccess = () => resolve(true);
-      req.onerror = (e) => reject(e);
-    });
+  getMetadataCache() {
+    try {
+      const raw = localStorage.getItem('pioneer_songs_cache_v4');
+      return raw ? JSON.parse(raw) : [];
+    } catch(e) {
+      return [];
+    }
   }
 }
 
@@ -103,36 +127,34 @@ class PioneerDSPEngine {
   constructor() {
     this.audioCtx = null;
     this.db = new PioneerAudioDB();
-    
+
     // Playback State
-    this.sourceType = 'none'; // 'buffer', 'stream', 'none'
+    this.sourceType = 'none'; // 'local', 'none'
     this.sourceNode = null;
-    this.audioElement = null;
-    this.mediaElementSource = null;
     this.isPlaying = false;
     this.isPaused = false;
     this.pauseOffset = 0;
     this.startTime = 0;
     this.duration = 0;
+    this.playbackRate = 1.0;
+    this.isRepeat = 'off'; // 'off', 'all', 'one'
+    this.isShuffle = false;
 
-    // Track Library (100% Free of fake demo music)
+    // Track Library
     this.songs = [];
     this.currentIndex = -1;
     this.currentBuffer = null;
     this.activeTrack = null;
 
-    // Network Streaming State
-    this.networkStreams = [];
-    this.activeStream = null;
-
     // DSP Tuning State & Parameters
     this.preampGain = 0; // -12 to +12 dB
-    this.superBassGain = 0; // 0 to 12 dB (Todoroki 63Hz)
-    this.deepBassGain = 0; // 0 to 8 dB (Sub-Bass 31Hz)
+    this.superBassGain = 0; // 0 to 14 dB (Todoroki 63Hz punch)
+    this.deepBassGain = 0; // 0 to 12 dB (Sub-Bass 31Hz depth)
     this.midGain = 0; // -10 to +10 dB (1.5kHz)
-    this.trebleGain = 0; // -10 to +10 dB (10kHz)
-    
-    this.ambienceMode = 'hall'; // 'hall', 'room', 'studio'
+    this.trebleGain = 0; // -10 to +10 dB (10kHz air)
+    this.volume = 1.0; // 0.0 to 1.0 master volume
+
+    this.ambienceMode = 'hall'; // 'hall', 'room', 'studio', 'arena'
     this.reverbMix = 0; // 0 to 100%
     this.balance = 0; // -1.0 to +1.0
     this.cabinPosition = 'all'; // 'all', 'fl', 'fr'
@@ -144,16 +166,19 @@ class PioneerDSPEngine {
 
     // Audio Graph Nodes
     this.preampNode = null;
-    this.superBassFilter = null;
+    this.superBassShelf = null;
+    this.superBassPeak = null;
     this.deepBassFilter = null;
     this.midFilter = null;
     this.trebleFilter = null;
     this.convolverNode = null;
     this.dryGain = null;
     this.wetGain = null;
+    this.reverbSum = null;
     this.pannerNode = null;
     this.cabinDelayL = null;
     this.cabinDelayR = null;
+    this.masterVolumeNode = null;
     this.limiterNode = null;
     this.analyser = null;
 
@@ -187,27 +212,34 @@ class PioneerDSPEngine {
       const filter = this.audioCtx.createBiquadFilter();
       filter.type = 'peaking';
       filter.frequency.value = freq;
-      filter.Q.value = 1.414; // Standard 1-octave bandwidth
+      filter.Q.value = (freq === 31 || freq === 16000) ? 1.0 : 1.414;
       filter.gain.value = this.eqGains[idx];
       prevFilter.connect(filter);
       this.eqFilters.push(filter);
       prevFilter = filter;
     });
 
-    // 3. Todoroki Super Bass Peaking Filter (63Hz punch, Q=1.8)
-    this.superBassFilter = this.audioCtx.createBiquadFilter();
-    this.superBassFilter.type = 'peaking';
-    this.superBassFilter.frequency.value = 63;
-    this.superBassFilter.Q.value = 1.8;
-    this.superBassFilter.gain.value = this.superBassGain;
-    prevFilter.connect(this.superBassFilter);
+    // 3. Todoroki Super Bass Architecture (Dual Stage: 80Hz Low-Shelf + 60Hz Peak)
+    this.superBassShelf = this.audioCtx.createBiquadFilter();
+    this.superBassShelf.type = 'lowshelf';
+    this.superBassShelf.frequency.value = 80;
+    this.superBassShelf.gain.value = this.superBassGain * 0.7;
 
-    // 4. Deep Sub-Bass Low-Shelf Filter (31Hz foundation)
+    this.superBassPeak = this.audioCtx.createBiquadFilter();
+    this.superBassPeak.type = 'peaking';
+    this.superBassPeak.frequency.value = 60;
+    this.superBassPeak.Q.value = 1.6;
+    this.superBassPeak.gain.value = this.superBassGain * 0.6;
+
+    prevFilter.connect(this.superBassShelf);
+    this.superBassShelf.connect(this.superBassPeak);
+
+    // 4. Deep Sub-Bass Low-Shelf Filter (35Hz foundation)
     this.deepBassFilter = this.audioCtx.createBiquadFilter();
     this.deepBassFilter.type = 'lowshelf';
-    this.deepBassFilter.frequency.value = 31;
+    this.deepBassFilter.frequency.value = 35;
     this.deepBassFilter.gain.value = this.deepBassGain;
-    this.superBassFilter.connect(this.deepBassFilter);
+    this.superBassPeak.connect(this.deepBassFilter);
 
     // 5. Midrange Tone Peaking Filter (1.5kHz vocal presence, Q=1.2)
     this.midFilter = this.audioCtx.createBiquadFilter();
@@ -224,33 +256,32 @@ class PioneerDSPEngine {
     this.trebleFilter.gain.value = this.trebleGain;
     this.midFilter.connect(this.trebleFilter);
 
-    // 7. Convolution Reverb Ambience Simulation & Wet/Dry Mixer
+    // 7. Convolution Reverb Ambience Simulation & Equal-Power Wet/Dry Mixer
     this.convolverNode = this.audioCtx.createConvolver();
+    this.convolverNode.normalize = false; // Disable default L2 auto-attenuation so reverb is vividly audible
     this.convolverNode.buffer = await this.getImpulseResponse(this.ambienceMode);
 
     this.dryGain = this.audioCtx.createGain();
     this.wetGain = this.audioCtx.createGain();
-    const wetRatio = this.reverbMix / 100.0;
-    this.dryGain.gain.value = 1.0;
-    this.wetGain.gain.value = wetRatio * 0.8;
+    this.reverbSum = this.audioCtx.createGain();
+
+    this.updateReverbGains();
 
     this.trebleFilter.connect(this.dryGain);
     this.trebleFilter.connect(this.convolverNode);
     this.convolverNode.connect(this.wetGain);
 
-    // Reverb Summing Node
-    const reverbSum = this.audioCtx.createGain();
-    this.dryGain.connect(reverbSum);
-    this.wetGain.connect(reverbSum);
+    this.dryGain.connect(this.reverbSum);
+    this.wetGain.connect(this.reverbSum);
 
     // 8. Car Cabin Time Alignment (Channel Delay Processing)
-    const merger = this.audioCtx.createChannelMerger(2);
     const splitter = this.audioCtx.createChannelSplitter(2);
+    const merger = this.audioCtx.createChannelMerger(2);
     this.cabinDelayL = this.audioCtx.createDelay(0.05);
     this.cabinDelayR = this.audioCtx.createDelay(0.05);
     this.updateCabinDelays();
 
-    reverbSum.connect(splitter);
+    this.reverbSum.connect(splitter);
     splitter.connect(this.cabinDelayL, 0);
     splitter.connect(this.cabinDelayR, 1);
     this.cabinDelayL.connect(merger, 0, 0);
@@ -261,22 +292,27 @@ class PioneerDSPEngine {
     this.pannerNode.pan.value = this.balance;
     merger.connect(this.pannerNode);
 
-    // 10. Peak Limiter / Dynamics Compressor (Clipping Protection)
-    this.limiterNode = this.audioCtx.createDynamicsCompressor();
-    this.limiterNode.threshold.value = -0.5; // Trigger at -0.5 dB
-    this.limiterNode.knee.value = 2.0;
-    this.limiterNode.ratio.value = 20.0; // Hard limiting ratio
-    this.limiterNode.attack.value = 0.003; // 3ms fast attack
-    this.limiterNode.release.value = 0.1; // 100ms release
-    this.pannerNode.connect(this.limiterNode);
+    // 10. Master Volume Gain Node
+    this.masterVolumeNode = this.audioCtx.createGain();
+    this.masterVolumeNode.gain.value = this.volume;
+    this.pannerNode.connect(this.masterVolumeNode);
 
-    // 11. 60fps Real-time Spectrum Analyser
+    // 11. Transparent Peak Limiter (Clipping & Distortion Protection with Soft Knee)
+    this.limiterNode = this.audioCtx.createDynamicsCompressor();
+    this.limiterNode.threshold.value = -1.0; // -1.0 dBFS ceiling
+    this.limiterNode.knee.value = 6.0; // Soft 6dB musical knee
+    this.limiterNode.ratio.value = 12.0; // Effective limiting ratio without squashing transients
+    this.limiterNode.attack.value = 0.005; // 5ms attack
+    this.limiterNode.release.value = 0.18; // 180ms smooth release
+    this.masterVolumeNode.connect(this.limiterNode);
+
+    // 12. 60fps Real-time Spectrum Analyser
     this.analyser = this.audioCtx.createAnalyser();
     this.analyser.fftSize = 128;
     this.analyser.smoothingTimeConstant = 0.82;
     this.limiterNode.connect(this.analyser);
 
-    // 12. Final Audio Output Destination
+    // 13. Final Audio Destination (Headphones / Speakers / DAC)
     this.analyser.connect(this.audioCtx.destination);
   }
 
@@ -284,24 +320,28 @@ class PioneerDSPEngine {
     return Math.pow(10, db / 20);
   }
 
-  // Algorithmic Acoustic Impulse Responses
+  // Algorithmic Acoustic Impulse Responses (High-Fidelity Studio & Hall Reverberation)
   async getImpulseResponse(mode) {
     if (this.impulseBuffers[mode]) return this.impulseBuffers[mode];
     if (!this.audioCtx) return null;
 
     const sampleRate = this.audioCtx.sampleRate;
-    let duration = 2.8; // Concert Hall
-    let decayRate = 2.2;
-    let density = 0.85;
+    let duration = 2.6; // Concert Hall
+    let decayRate = 2.4;
+    let initialGain = 0.55;
 
     if (mode === 'room') {
-      duration = 1.4;
-      decayRate = 3.5;
-      density = 0.65;
+      duration = 1.3;
+      decayRate = 3.8;
+      initialGain = 0.45;
     } else if (mode === 'studio') {
       duration = 0.6;
-      decayRate = 6.0;
-      density = 0.45;
+      decayRate = 6.5;
+      initialGain = 0.40;
+    } else if (mode === 'arena') {
+      duration = 3.6;
+      decayRate = 1.8;
+      initialGain = 0.65;
     }
 
     const length = Math.floor(sampleRate * duration);
@@ -312,13 +352,27 @@ class PioneerDSPEngine {
     for (let i = 0; i < length; i++) {
       const t = i / sampleRate;
       const env = Math.exp(-t * decayRate);
-      const earlyReflections = (i < sampleRate * 0.08) ? (Math.random() > (1 - density) ? 1.4 : 0.2) : 1.0;
-      left[i] = (Math.random() * 2 - 1) * env * earlyReflections;
-      right[i] = (Math.random() * 2 - 1) * env * earlyReflections;
+      // Diffuse reflections with stereo decorrelation
+      const lNoise = (Math.random() * 2 - 1);
+      const rNoise = (Math.random() * 2 - 1);
+      const earlyBoost = (i < sampleRate * 0.06) ? 1.5 : 1.0;
+      left[i] = lNoise * env * earlyBoost * initialGain;
+      right[i] = rNoise * env * earlyBoost * initialGain;
     }
 
     this.impulseBuffers[mode] = impulse;
     return impulse;
+  }
+
+  updateReverbGains() {
+    if (!this.dryGain || !this.wetGain || !this.audioCtx) return;
+    const now = this.audioCtx.currentTime;
+    const ratio = Math.max(0, Math.min(100, this.reverbMix)) / 100.0;
+    // Equal-power crossfade curve
+    const dry = Math.cos(ratio * 0.5 * Math.PI);
+    const wet = Math.sin(ratio * 0.5 * Math.PI) * 1.4;
+    this.dryGain.gain.setTargetAtTime(dry, now, 0.03);
+    this.wetGain.gain.setTargetAtTime(wet, now, 0.03);
   }
 
   // Real-time DSP Setters
@@ -337,14 +391,20 @@ class PioneerDSPEngine {
   }
 
   setSuperBass(gainDB) {
-    this.superBassGain = parseFloat(gainDB);
-    if (this.superBassFilter && this.audioCtx) {
-      this.superBassFilter.gain.setTargetAtTime(this.superBassGain, this.audioCtx.currentTime, 0.02);
+    this.superBassGain = Math.max(0, Math.min(14, parseFloat(gainDB)));
+    if (this.audioCtx) {
+      const now = this.audioCtx.currentTime;
+      if (this.superBassShelf) {
+        this.superBassShelf.gain.setTargetAtTime(this.superBassGain * 0.7, now, 0.02);
+      }
+      if (this.superBassPeak) {
+        this.superBassPeak.gain.setTargetAtTime(this.superBassGain * 0.6, now, 0.02);
+      }
     }
   }
 
   setDeepBass(gainDB) {
-    this.deepBassGain = parseFloat(gainDB);
+    this.deepBassGain = Math.max(0, Math.min(12, parseFloat(gainDB)));
     if (this.deepBassFilter && this.audioCtx) {
       this.deepBassFilter.gain.setTargetAtTime(this.deepBassGain, this.audioCtx.currentTime, 0.02);
     }
@@ -373,16 +433,20 @@ class PioneerDSPEngine {
 
   setReverbMix(percent) {
     this.reverbMix = parseFloat(percent);
-    if (this.wetGain && this.audioCtx) {
-      const wetRatio = (this.reverbMix / 100.0) * 0.8;
-      this.wetGain.gain.setTargetAtTime(wetRatio, this.audioCtx.currentTime, 0.03);
-    }
+    this.updateReverbGains();
   }
 
   setBalance(val) {
     this.balance = Math.max(-1, Math.min(1, parseFloat(val)));
     if (this.pannerNode && this.audioCtx) {
       this.pannerNode.pan.setTargetAtTime(this.balance, this.audioCtx.currentTime, 0.02);
+    }
+  }
+
+  setMasterVolume(val) {
+    this.volume = Math.max(0, Math.min(1.0, parseFloat(val)));
+    if (this.masterVolumeNode && this.audioCtx) {
+      this.masterVolumeNode.gain.setTargetAtTime(this.volume, this.audioCtx.currentTime, 0.02);
     }
   }
 
@@ -412,38 +476,41 @@ class PioneerDSPEngine {
   applyPreset(presetName) {
     const presets = {
       flat: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-      bass: [5, 7, 5, 2, 0, 0, 0, 1, 2, 3],
-      deep_bass: [7, 8, 4, 1, 0, 0, 0, 0, 1, 2],
+      bass: [6, 8, 6, 2, 0, 0, 0, 1, 2, 3],
+      deep_bass: [9, 9, 5, 2, 0, 0, 0, 0, 1, 2],
       hall: [2, 1, 0, 0, 1, 2, 3, 4, 3, 2],
       studio: [0, 1, 2, 0, 1, 1, 2, 1, 0, 0],
       vocal: [-2, -1, 0, 2, 4, 5, 4, 2, 1, 0],
       acoustic: [3, 2, 1, 2, 3, 3, 4, 4, 3, 2],
-      rock: [5, 4, 2, 0, -1, 1, 3, 5, 5, 4],
+      rock: [6, 5, 3, 0, -1, 1, 3, 5, 6, 5],
       classical: [4, 3, 2, 1, 0, 1, 2, 3, 4, 4],
-      cinema: [6, 5, 2, 0, 1, 2, 4, 5, 6, 5]
+      electronic: [7, 7, 4, 1, -1, 1, 3, 5, 6, 6]
     };
 
     const targetGains = presets[presetName] || presets.flat;
     targetGains.forEach((g, idx) => this.setEQBand(idx, g));
 
-    if (presetName === 'bass' || presetName === 'deep_bass') {
-      this.setSuperBass(presetName === 'bass' ? 8 : 4);
-      this.setDeepBass(presetName === 'deep_bass' ? 6 : 2);
-    } else {
+    if (presetName === 'bass') {
+      this.setSuperBass(9);
+      this.setDeepBass(4);
+      this.setReverbMix(0);
+    } else if (presetName === 'deep_bass') {
+      this.setSuperBass(5);
+      this.setDeepBass(8);
+      this.setReverbMix(0);
+    } else if (presetName === 'hall') {
       this.setSuperBass(0);
       this.setDeepBass(0);
-    }
-
-    if (presetName === 'hall') {
       this.setAmbienceMode('hall');
       this.setReverbMix(65);
     } else if (presetName === 'studio') {
+      this.setSuperBass(0);
+      this.setDeepBass(0);
       this.setAmbienceMode('studio');
-      this.setReverbMix(25);
-    } else if (presetName === 'cinema') {
-      this.setAmbienceMode('hall');
-      this.setReverbMix(50);
+      this.setReverbMix(30);
     } else {
+      this.setSuperBass(0);
+      this.setDeepBass(0);
       this.setReverbMix(0);
     }
   }
@@ -466,7 +533,7 @@ class PioneerDSPEngine {
         reverbMix: this.reverbMix,
         ambienceMode: this.ambienceMode
       };
-      localStorage.setItem('pioneer_custom_presets', JSON.stringify(presets));
+      localStorage.setItem('pioneer_custom_presets_v4', JSON.stringify(presets));
       return true;
     } catch(e) {
       return false;
@@ -475,7 +542,7 @@ class PioneerDSPEngine {
 
   getCustomPresets() {
     try {
-      const data = localStorage.getItem('pioneer_custom_presets');
+      const data = localStorage.getItem('pioneer_custom_presets_v4');
       return data ? JSON.parse(data) : {};
     } catch(e) {
       return {};
@@ -499,7 +566,6 @@ class PioneerDSPEngine {
 
   // --- Real Media Playback Pipeline ---
 
-  // Stop any currently playing audio
   stopPlayback() {
     if (this.sourceNode) {
       try {
@@ -507,13 +573,6 @@ class PioneerDSPEngine {
         this.sourceNode.disconnect();
       } catch(e) {}
       this.sourceNode = null;
-    }
-
-    if (this.audioElement) {
-      try {
-        this.audioElement.pause();
-        this.audioElement.src = '';
-      } catch(e) {}
     }
 
     this.isPlaying = false;
@@ -530,13 +589,12 @@ class PioneerDSPEngine {
     this.currentIndex = index;
     const song = this.songs[index];
     this.activeTrack = song;
-    this.activeStream = null;
     this.sourceType = 'local';
 
     try {
       let arrayBuffer = null;
 
-      // Option A: Loaded from IndexedDB Blob
+      // Option A: Loaded from IndexedDB Blob / File
       if (song.blob) {
         arrayBuffer = await song.blob.arrayBuffer();
       }
@@ -569,14 +627,20 @@ class PioneerDSPEngine {
 
       this.currentBuffer = await this.audioCtx.decodeAudioData(arrayBuffer);
       this.duration = this.currentBuffer.duration;
+      song.duration = Math.round(this.duration);
 
       this.sourceNode = this.audioCtx.createBufferSource();
       this.sourceNode.buffer = this.currentBuffer;
+      this.sourceNode.playbackRate.value = this.playbackRate;
       this.sourceNode.connect(this.preampNode);
 
       this.sourceNode.onended = () => {
         if (this.isPlaying && !this.isPaused) {
-          this.playNext();
+          if (this.isRepeat === 'one') {
+            this.playLocalSong(this.currentIndex);
+          } else {
+            this.playNext();
+          }
         }
       };
 
@@ -593,62 +657,8 @@ class PioneerDSPEngine {
     }
   }
 
-  // Play a network audio stream (HTTP/HTTPS URL) routed directly into the DSP engine
-  async playNetworkStream(url, title = 'Network Stream', artist = 'Live Audio Source') {
-    if (!url || !url.trim()) return false;
-    await this.initAudioContext();
-    this.stopPlayback();
-
-    this.sourceType = 'network';
-    this.activeStream = { url: url.trim(), title: title.trim(), artist: artist.trim() };
-    this.activeTrack = {
-      title: title.trim(),
-      artist: artist.trim(),
-      album: 'Network Audio Stream',
-      duration: 0,
-      isNetwork: true
-    };
-
-    try {
-      if (!this.audioElement) {
-        this.audioElement = new Audio();
-        this.audioElement.crossOrigin = 'anonymous';
-        this.mediaElementSource = this.audioCtx.createMediaElementSource(this.audioElement);
-        this.mediaElementSource.connect(this.preampNode);
-      }
-
-      this.audioElement.src = url.trim();
-      this.audioElement.onerror = (e) => {
-        console.error('Network stream playback error:', e);
-        this.isPlaying = false;
-      };
-
-      await this.audioElement.play();
-      this.isPlaying = true;
-      this.isPaused = false;
-      return true;
-    } catch(err) {
-      console.error('Failed to play network stream:', err);
-      this.stopPlayback();
-      throw err;
-    }
-  }
-
   // Playback Control
   togglePlay() {
-    if (this.sourceType === 'network' && this.audioElement) {
-      if (this.audioElement.paused) {
-        this.audioElement.play();
-        this.isPlaying = true;
-        this.isPaused = false;
-      } else {
-        this.audioElement.pause();
-        this.isPlaying = false;
-        this.isPaused = true;
-      }
-      return this.isPlaying;
-    }
-
     if (this.isPlaying) {
       this.pause();
       return false;
@@ -659,13 +669,6 @@ class PioneerDSPEngine {
   }
 
   pause() {
-    if (this.sourceType === 'network' && this.audioElement) {
-      this.audioElement.pause();
-      this.isPlaying = false;
-      this.isPaused = true;
-      return;
-    }
-
     if (this.sourceNode && this.isPlaying && !this.isPaused) {
       this.pauseOffset = (this.audioCtx.currentTime - this.startTime) % (this.duration || 1);
       try {
@@ -679,21 +682,19 @@ class PioneerDSPEngine {
   }
 
   resume() {
-    if (this.sourceType === 'network' && this.audioElement) {
-      this.audioElement.play();
-      this.isPlaying = true;
-      this.isPaused = false;
-      return;
-    }
-
     if (this.isPaused && this.currentBuffer && this.audioCtx) {
       this.sourceNode = this.audioCtx.createBufferSource();
       this.sourceNode.buffer = this.currentBuffer;
+      this.sourceNode.playbackRate.value = this.playbackRate;
       this.sourceNode.connect(this.preampNode);
 
       this.sourceNode.onended = () => {
         if (this.isPlaying && !this.isPaused) {
-          this.playNext();
+          if (this.isRepeat === 'one') {
+            this.playLocalSong(this.currentIndex);
+          } else {
+            this.playNext();
+          }
         }
       };
 
@@ -707,9 +708,7 @@ class PioneerDSPEngine {
   }
 
   seek(ratio) {
-    if (this.sourceType === 'network') return; // Live streams are unseekable
     if (!this.currentBuffer) return;
-
     const targetTime = Math.max(0, Math.min(this.duration, this.duration * ratio));
     this.pauseOffset = targetTime;
 
@@ -720,9 +719,16 @@ class PioneerDSPEngine {
       } catch(e) {}
       this.sourceNode = this.audioCtx.createBufferSource();
       this.sourceNode.buffer = this.currentBuffer;
+      this.sourceNode.playbackRate.value = this.playbackRate;
       this.sourceNode.connect(this.preampNode);
       this.sourceNode.onended = () => {
-        if (this.isPlaying && !this.isPaused) this.playNext();
+        if (this.isPlaying && !this.isPaused) {
+          if (this.isRepeat === 'one') {
+            this.playLocalSong(this.currentIndex);
+          } else {
+            this.playNext();
+          }
+        }
       };
       this.startTime = this.audioCtx.currentTime - targetTime;
       this.sourceNode.start(0, targetTime);
@@ -731,27 +737,34 @@ class PioneerDSPEngine {
 
   async playNext() {
     if (this.songs.length === 0) return;
-    const nextIdx = (this.currentIndex + 1) % this.songs.length;
+    let nextIdx;
+    if (this.isShuffle) {
+      nextIdx = Math.floor(Math.random() * this.songs.length);
+    } else {
+      nextIdx = (this.currentIndex + 1) % this.songs.length;
+    }
     await this.playLocalSong(nextIdx);
   }
 
   async playPrev() {
     if (this.songs.length === 0) return;
-    const prevIdx = (this.currentIndex - 1 + this.songs.length) % this.songs.length;
+    let prevIdx;
+    if (this.isShuffle) {
+      prevIdx = Math.floor(Math.random() * this.songs.length);
+    } else {
+      prevIdx = (this.currentIndex - 1 + this.songs.length) % this.songs.length;
+    }
     await this.playLocalSong(prevIdx);
   }
 
   getCurrentTime() {
-    if (this.sourceType === 'network' && this.audioElement) {
-      return this.audioElement.currentTime || 0;
-    }
     if (!this.isPlaying || !this.audioCtx) return this.pauseOffset;
     if (this.isPaused) return this.pauseOffset;
-    return (this.audioCtx.currentTime - this.startTime) % (this.duration || 1);
+    const elapsed = this.audioCtx.currentTime - this.startTime;
+    return Math.min(this.duration || 0, Math.max(0, elapsed));
   }
 
   getCurrentDuration() {
-    if (this.sourceType === 'network') return 0;
     return this.duration || (this.songs[this.currentIndex]?.duration || 0);
   }
 
@@ -760,12 +773,9 @@ class PioneerDSPEngine {
     try {
       const saved = await this.db.getAllSongs();
       this.songs = saved || [];
-      const streams = await this.db.getAllStreams();
-      this.networkStreams = streams || [];
       return this.songs;
     } catch(e) {
       this.songs = [];
-      this.networkStreams = [];
       return [];
     }
   }
@@ -799,7 +809,6 @@ class PioneerDSPEngine {
   async importMediaStoreTracks(tracks) {
     if (!tracks || !Array.isArray(tracks)) return;
     for (const t of tracks) {
-      // Deduplicate by contentUri or id
       const exists = this.songs.some(s => s.contentUri === t.contentUri || s.id === t.id);
       if (!exists) {
         const songObj = {
@@ -817,6 +826,7 @@ class PioneerDSPEngine {
         await this.db.saveSong(songObj);
       }
     }
+    this.db.syncMetadataCache();
   }
 
   async removeSong(id) {
@@ -830,28 +840,6 @@ class PioneerDSPEngine {
       }
       this.songs.splice(idx, 1);
       await this.db.deleteSong(id);
-    }
-  }
-
-  async saveNetworkStreamRecord(url, title, artist) {
-    const id = 'stream_' + Date.now();
-    const item = {
-      id: id,
-      url: url.trim(),
-      title: (title || 'Network Stream').trim(),
-      artist: (artist || 'Live Broadcast').trim(),
-      addedAt: Date.now()
-    };
-    this.networkStreams.push(item);
-    await this.db.saveStream(item);
-    return item;
-  }
-
-  async removeNetworkStream(id) {
-    const idx = this.networkStreams.findIndex(s => s.id === id);
-    if (idx !== -1) {
-      this.networkStreams.splice(idx, 1);
-      await this.db.deleteStream(id);
     }
   }
 }
