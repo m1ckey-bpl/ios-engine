@@ -1,0 +1,63 @@
+name: Build Pioneer DSP iOS IPA
+
+on:
+  push:
+    branches: [ "main" ]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-ios:
+    name: Build iOS Release IPA
+    runs-on: macos-14
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Compile iOS Project
+        run: |
+          xcodebuild -project ios-engine.xcodeproj \
+                     -scheme ios-engine \
+                     -configuration Release \
+                     -destination 'generic/platform=iOS' \
+                     -derivedDataPath build \
+                     CODE_SIGNING_ALLOWED=NO \
+                     CODE_SIGNING_REQUIRED=NO \
+                     CODE_SIGN_IDENTITY="" \
+                     clean build
+
+      - name: Package App into Unsigned IPA
+        run: |
+          mkdir -p Payload
+          cp -R build/Build/Products/Release-iphoneos/ios-engine.app Payload/
+          zip -r -y Pioneer_DSP_unsigned.ipa Payload
+
+      - name: Upload iOS IPA Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Pioneer-DSP-Unsigned-IPA
+          path: Pioneer_DSP_unsigned.ipa
+
+      - name: Publish iOS Release
+        uses: softprops/action-gh-release@v2
+        if: github.ref == 'refs/heads/main'
+        with:
+          tag_name: v4.0.0
+          name: "Pioneer DSP for iOS v4.0.0"
+          body: |
+            ## 📱 Pioneer DSP for iOS v4.0.0
+            
+            ### 📦 Download:
+            * 🍏 **iOS IPA**: `Pioneer_DSP_unsigned.ipa` (Sideload via AltStore / SideStore / Scarlet / TrollStore)
+
+            ### 🚀 Features:
+            * 100% Native SwiftUI & AVFoundation / AudioKit Hi-Fi DSP architecture
+            * 10-Band Graphic Equalizer (-12dB to +12dB)
+            * Todoroki Super Bass & Deep Sub-Bass processing
+            * Concert Hall 3D Spatial Reverb & Cabin time alignment
+            * Spotify Remote Controller & Local Files Document Picker
+            
+            *Note: For the Android APK, see our separate dedicated repository: [pioneer-dsp-android](https://github.com/m1ckey-bpl/pioneer-dsp-android)*
+          files: Pioneer_DSP_unsigned.ipa
