@@ -9,8 +9,10 @@ public struct SongItem: Identifiable, Equatable {
     public let fileURL: URL?
     public let fileSize: String
     public let isBuiltIn: Bool
+    public let isYouTube: Bool
+    public let thumbnailURL: String?
     
-    public init(id: UUID = UUID(), title: String, artist: String, duration: TimeInterval, fileURL: URL? = nil, fileSize: String = "Demo", isBuiltIn: Bool = false) {
+    public init(id: UUID = UUID(), title: String, artist: String, duration: TimeInterval, fileURL: URL? = nil, fileSize: String = "Demo", isBuiltIn: Bool = false, isYouTube: Bool = false, thumbnailURL: String? = nil) {
         self.id = id
         self.title = title
         self.artist = artist
@@ -18,6 +20,8 @@ public struct SongItem: Identifiable, Equatable {
         self.fileURL = fileURL
         self.fileSize = fileSize
         self.isBuiltIn = isBuiltIn
+        self.isYouTube = isYouTube
+        self.thumbnailURL = thumbnailURL
     }
     
     public var formattedDuration: String {

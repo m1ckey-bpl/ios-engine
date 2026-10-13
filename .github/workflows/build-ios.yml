@@ -44,20 +44,26 @@ jobs:
         uses: softprops/action-gh-release@v2
         if: github.ref == 'refs/heads/main'
         with:
-          tag_name: v4.0.0
-          name: "Pioneer DSP for iOS v4.0.0"
+          tag_name: v4.1.0
+          name: "Pioneer DSP for iOS v4.1.0 (YouTube Playback & LRCLIB Lyrics Edition)"
           body: |
-            ## 📱 Pioneer DSP for iOS v4.0.0
+            ## 🎵 Pioneer DSP for iOS v4.1.0 — YouTube Streaming & LRCLIB Lyrics Edition
             
             ### 📦 Download:
-            * 🍏 **iOS IPA**: `Pioneer_DSP_unsigned.ipa` (Sideload via AltStore / SideStore / Scarlet / TrollStore)
+            * 📱 **iOS IPA**: `Pioneer_DSP_unsigned.ipa` (Sideload via AltStore / SideStore / Scarlet / TrollStore)
 
-            ### 🚀 Features:
-            * 100% Native SwiftUI & AVFoundation / AudioKit Hi-Fi DSP architecture
-            * 10-Band Graphic Equalizer (-12dB to +12dB)
-            * Todoroki Super Bass & Deep Sub-Bass processing
-            * Concert Hall 3D Spatial Reverb & Cabin time alignment
-            * Spotify Remote Controller & Local Files Document Picker
+            ### ✨ Key Upgrades in this Release:
+            1. **YouTube Music Discovery**:
+               - Search YouTube tracks and metadata directly inside the Discovery & Library tab.
+               - YouTube Data API v3 and high-speed public music gateway resolver.
+            2. **Remote Command Center & Lock-Screen Media Controls**:
+               - Integrated `MPRemoteCommandCenter` (Play, Pause, Skip, Previous, Seek).
+               - Live `MPNowPlayingInfoCenter` telemetry with track metadata, elapsed time, and duration.
+            3. **LRCLIB Synchronized Lyrics**:
+               - Real-time lyrics lookup via LRCLIB API.
+               - Synced lyric sheet with live scrolling and interactive timestamp seeking.
+            4. **Real-Time 32-Bit Audio DSP Engine**:
+               - 10-Band Graphic EQ, Concert Hall 3D spatial reverb, Todoroki Bass, and car cabin time alignment.
             
             *Note: For the Android APK, see our separate dedicated repository: [pioneer-dsp-android](https://github.com/m1ckey-bpl/pioneer-dsp-android)*
           files: Pioneer_DSP_unsigned.ipa

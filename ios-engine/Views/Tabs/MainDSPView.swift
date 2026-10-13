@@ -4,6 +4,7 @@ public struct MainDSPView: View {
     @ObservedObject var dspEngine = AudioDSPEngine.shared
     @ObservedObject var libraryManager = MusicLibraryManager.shared
     @State private var showMultiPicker: Bool = false
+    @State private var showLyricsSheet: Bool = false
     
     public init() {}
     
@@ -224,8 +225,24 @@ public struct MainDSPView: View {
                         
                         Spacer()
                         
-                        // Previous, Play/Pause, Next Controls
-                        HStack(spacing: 14) {
+                        // Lyrics & Previous, Play/Pause, Next Controls
+                        HStack(spacing: 12) {
+                            Button(action: {
+                                showLyricsSheet = true
+                                Task {
+                                    await LRCLibService.shared.fetchLyrics(title: dspEngine.trackTitle, artist: dspEngine.trackArtist, duration: dspEngine.totalDuration)
+                                }
+                            }) {
+                                ZStack {
+                                    RoundedRectangle(cornerRadius: 8)
+                                        .fill(Color.white.opacity(0.08))
+                                        .frame(width: 32, height: 32)
+                                    Image(systemName: "quote.bubble.fill")
+                                        .font(.system(size: 14))
+                                        .foregroundColor(PioneerColors.amberOrange)
+                                }
+                            }
+
                             Button(action: {
                                 libraryManager.playPrevious()
                             }) {
