@@ -64,7 +64,7 @@ public struct LibraryView: View {
             .pickerStyle(.segmented)
             .padding(.horizontal, 16)
             .padding(.vertical, 10)
-            .background(Color(hex: "#0e1017"))
+            .background(PioneerColors.titaniumCard)
             
             if selectedSegment == 0 {
                 // Local Songs List
@@ -235,7 +235,7 @@ public struct LibraryView: View {
                 }
             }
         }
-        .background(Color(hex: "#080a0f").ignoresSafeArea())
+        .background(PioneerColors.carbonBg.ignoresSafeArea())
         .sheet(isPresented: $showMultiPicker) {
             DocumentPickerView { urls in
                 libraryManager.addSongs(from: urls)

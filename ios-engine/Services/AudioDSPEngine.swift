@@ -269,7 +269,7 @@ public struct LRCLyricsSheetView: View {
     
     public var body: some View {
         ZStack {
-            Color(hex: "#0e1017").ignoresSafeArea()
+            PioneerColors.carbonBg.ignoresSafeArea()
             
             VStack(spacing: 20) {
                 // Header
@@ -724,19 +724,43 @@ public final class AudioDSPEngine: ObservableObject {
         impact.impactOccurred()
     }
     
+    public func setPosition(_ pos: ListeningPosition) {
+        setListeningPosition(pos)
+    }
+    
+    public func resetEQToZero() {
+        for i in 0..<eqBands.count {
+            setEQBandGain(index: i, gain: 0.0)
+        }
+        applyPreset(.flat)
+    }
+    
     public func applyPreset(_ preset: DSPPreset) {
         currentPreset = preset
-        let gains = preset.gains
-        for (i, g) in gains.enumerated() {
-            setEQBandGain(index: i, gain: g)
-        }
-        
-        if preset == .superBass {
+        switch preset {
+        case .flat:
+            for i in 0..<eqBands.count { setEQBandGain(index: i, gain: 0) }
+            setSuperBass(0.0)
+        case .concertHall:
+            for i in 0..<eqBands.count { setEQBandGain(index: i, gain: 0) }
+            setSuperBass(0.0)
+            if !isConcertHallEnabled { toggleConcertHall() }
+        case .superBass:
+            let gains: [Float] = [6, 8, 6, 2, 0, 0, 0, 1, 2, 3]
+            for (i, g) in gains.enumerated() { setEQBandGain(index: i, gain: g) }
             setSuperBass(9.0)
-        } else if preset == .vocalBoost {
+        case .dynamic:
+            let gains: [Float] = [5, 4, 2, 0, -1, 1, 3, 5, 6, 5]
+            for (i, g) in gains.enumerated() { setEQBandGain(index: i, gain: g) }
+            setSuperBass(5.0)
+        case .vocal:
+            let gains: [Float] = [-2, -1, 0, 2, 4, 5, 4, 2, 1, 0]
+            for (i, g) in gains.enumerated() { setEQBandGain(index: i, gain: g) }
             setSuperBass(0.0)
-        } else {
-            setSuperBass(0.0)
+        case .club:
+            let gains: [Float] = [7, 7, 4, 1, -1, 1, 3, 5, 6, 6]
+            for (i, g) in gains.enumerated() { setEQBandGain(index: i, gain: g) }
+            setSuperBass(7.0)
         }
         
         let impact = UIImpactFeedbackGenerator(style: .medium)
