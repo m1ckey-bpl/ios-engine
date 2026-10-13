@@ -1,4 +1,4 @@
-name: Build Pioneer DSP iOS IPA
+name: Build DSP ENGINE iOS IPA
 
 on:
   push:
@@ -10,13 +10,13 @@ permissions:
 
 jobs:
   build-ios:
-    name: Build iOS Release IPA
+    name: Build unsigned iOS IPA
     runs-on: macos-14
     steps:
-      - name: Checkout Repository
+      - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Compile iOS Project
+      - name: Compile iOS project
         run: |
           xcodebuild -project ios-engine.xcodeproj \
                      -scheme ios-engine \
@@ -28,42 +28,32 @@ jobs:
                      CODE_SIGN_IDENTITY="" \
                      clean build
 
-      - name: Package App into Unsigned IPA
+      - name: Package unsigned IPA
         run: |
           mkdir -p Payload
           cp -R build/Build/Products/Release-iphoneos/ios-engine.app Payload/
-          zip -r -y Pioneer_DSP_unsigned.ipa Payload
+          zip -r -y DSP_ENGINE_unsigned.ipa Payload
+          unzip -t DSP_ENGINE_unsigned.ipa
 
-      - name: Upload iOS IPA Artifact
+      - name: Upload iOS IPA artifact
         uses: actions/upload-artifact@v4
         with:
-          name: Pioneer-DSP-Unsigned-IPA
-          path: Pioneer_DSP_unsigned.ipa
+          name: DSP-ENGINE-Unsigned-IPA
+          path: DSP_ENGINE_unsigned.ipa
+          if-no-files-found: error
+          retention-days: 30
 
-      - name: Publish iOS Release
+      - name: Publish iOS release
         uses: softprops/action-gh-release@v2
         if: github.ref == 'refs/heads/main'
         with:
-          tag_name: v4.1.0
-          name: "Pioneer DSP for iOS v4.1.0 (YouTube Playback & LRCLIB Lyrics Edition)"
+          tag_name: v5.0.0
+          name: "DSP ENGINE for iOS v5.0.0"
           body: |
-            ## 🎵 Pioneer DSP for iOS v4.1.0 — YouTube Streaming & LRCLIB Lyrics Edition
-            
-            ### 📦 Download:
-            * 📱 **iOS IPA**: `Pioneer_DSP_unsigned.ipa` (Sideload via AltStore / SideStore / Scarlet / TrollStore)
+            ## DSP ENGINE for iOS — made by avx
 
-            ### ✨ Key Upgrades in this Release:
-            1. **YouTube Music Discovery**:
-               - Search YouTube tracks and metadata directly inside the Discovery & Library tab.
-               - YouTube Data API v3 and high-speed public music gateway resolver.
-            2. **Remote Command Center & Lock-Screen Media Controls**:
-               - Integrated `MPRemoteCommandCenter` (Play, Pause, Skip, Previous, Seek).
-               - Live `MPNowPlayingInfoCenter` telemetry with track metadata, elapsed time, and duration.
-            3. **LRCLIB Synchronized Lyrics**:
-               - Real-time lyrics lookup via LRCLIB API.
-               - Synced lyric sheet with live scrolling and interactive timestamp seeking.
-            4. **Real-Time 32-Bit Audio DSP Engine**:
-               - 10-Band Graphic EQ, Concert Hall 3D spatial reverb, Todoroki Bass, and car cabin time alignment.
-            
-            *Note: For the Android APK, see our separate dedicated repository: [pioneer-dsp-android](https://github.com/m1ckey-bpl/pioneer-dsp-android)*
-          files: Pioneer_DSP_unsigned.ipa
+            - DSP processing for compatible local, non-DRM audio files.
+            - Spotify links open Spotify's official app/player; Spotify audio is not DSP-processed.
+            - YouTube search uses the official Data API; playback stays in the visible official YouTube player.
+            - The included IPA is unsigned and must be signed with a valid Apple identity/profile or a trusted sideloading workflow before installation.
+          files: DSP_ENGINE_unsigned.ipa

@@ -1,45 +1,51 @@
 import SwiftUI
 
+/// Retained as `PioneerColors` internally to avoid churn in the existing DSP controls;
+/// the shipped product branding and palette are DSP ENGINE / AVX.
 public struct PioneerColors {
-    public static let carbonBg = Color(red: 0.04, green: 0.06, blue: 0.09)
-    public static let titaniumCard = Color(red: 0.08, green: 0.11, blue: 0.16)
-    public static let titaniumCardBorder = Color(red: 0.16, green: 0.22, blue: 0.31)
-    
-    // Pioneer Signature Brand Colors
-    public static let amberOrange = Color(red: 1.0, green: 0.42, blue: 0.0) // Pioneer Sound Tune signature
-    public static let amberGlow = Color(red: 1.0, green: 0.55, blue: 0.1)
-    public static let cyberCyan = Color(red: 0.0, green: 0.90, blue: 1.0)
-    public static let hiFiGold = Color(red: 0.95, green: 0.77, blue: 0.25)
-    public static let textMuted = Color.white.opacity(0.55)
+    public static let carbonBg = Color(red: 0.012, green: 0.018, blue: 0.055)
+    public static let titaniumCard = Color(red: 0.035, green: 0.045, blue: 0.105).opacity(0.70)
+    public static let titaniumCardBorder = Color(red: 0.24, green: 0.34, blue: 0.57).opacity(0.72)
+
+    // Existing property names are kept for source compatibility; the values are now neon cyan / violet.
+    public static let amberOrange = Color(red: 0.20, green: 0.91, blue: 1.0)
+    public static let amberGlow = Color(red: 0.64, green: 0.43, blue: 1.0)
+    public static let cyberCyan = Color(red: 1.0, green: 0.32, blue: 0.79)
+    public static let hiFiGold = Color(red: 0.78, green: 0.78, blue: 1.0)
+    public static let textMuted = Color.white.opacity(0.62)
 }
 
 public struct PioneerCardModifier: ViewModifier {
     var cornerRadius: CGFloat
     var borderHighlight: Color
-    
+
     public func body(content: Content) -> some View {
         content
-            .background(
+            .background {
                 RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                    .fill(PioneerColors.titaniumCard)
-            )
-            .overlay(
+                    .fill(.ultraThinMaterial)
+                    .overlay {
+                        RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                            .fill(PioneerColors.titaniumCard)
+                    }
+            }
+            .overlay {
                 RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
                     .stroke(
                         LinearGradient(
                             colors: [
-                                borderHighlight.opacity(0.6),
+                                borderHighlight.opacity(0.68),
                                 PioneerColors.titaniumCardBorder,
-                                Color.white.opacity(0.04)
+                                Color.white.opacity(0.08)
                             ],
                             startPoint: .topLeading,
                             endPoint: .bottomTrailing
                         ),
-                        lineWidth: 1.2
+                        lineWidth: 1.1
                     )
                     .allowsHitTesting(false)
-            )
-            .shadow(color: borderHighlight.opacity(0.12), radius: 10, x: 0, y: 4)
+            }
+            .shadow(color: borderHighlight.opacity(0.14), radius: 12, x: 0, y: 5)
     }
 }
 

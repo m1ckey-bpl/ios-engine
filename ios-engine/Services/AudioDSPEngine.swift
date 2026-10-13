@@ -4,13 +4,15 @@ import Combine
 import UIKit
 import MediaPlayer
 import SwiftUI
+import Security
+import CoreFoundation
 
 // MARK: - LRCLIB Synchronized Lyrics Models & Service
 public struct SyncedLyricLine: Identifiable, Equatable {
     public let id = UUID()
     public let time: TimeInterval
     public let text: String
-    
+
     public init(time: TimeInterval, text: String) {
         self.time = time
         self.text = text
@@ -21,7 +23,7 @@ public struct LyricsResult: Equatable {
     public let plainLyrics: String?
     public let syncedLyrics: [SyncedLyricLine]
     public let isInstrumental: Bool
-    
+
     public init(plainLyrics: String?, syncedLyrics: [SyncedLyricLine], isInstrumental: Bool) {
         self.plainLyrics = plainLyrics
         self.syncedLyrics = syncedLyrics
@@ -32,25 +34,25 @@ public struct LyricsResult: Equatable {
 @MainActor
 public final class LRCLibService: ObservableObject {
     public static let shared = LRCLibService()
-    
+
     @Published public var currentLyrics: LyricsResult?
     @Published public var isLoading: Bool = false
-    
+
     private var cache: [String: LyricsResult] = [:]
-    
+
     public func fetchLyrics(title: String, artist: String, duration: TimeInterval = 0) async {
         let cleanTitle = cleanTrackTitle(title)
         let cleanArtist = cleanArtistName(artist)
         let key = "\(cleanTitle.lowercased())|\(cleanArtist.lowercased())"
-        
+
         if let cached = cache[key] {
             self.currentLyrics = cached
             return
         }
-        
+
         self.isLoading = true
         defer { self.isLoading = false }
-        
+
         // 1. Precise lookup via /api/get
         let titleEnc = cleanTitle.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? ""
         let artistEnc = cleanArtist.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? ""
@@ -58,10 +60,10 @@ public final class LRCLibService: ObservableObject {
         if duration > 0 {
             urlStr += "&duration=\(Int(duration))"
         }
-        
+
         if let url = URL(string: urlStr) {
             var req = URLRequest(url: url)
-            req.setValue("PioneerDSP/4.1 (iOS)", forHTTPHeaderField: "User-Agent")
+            req.setValue("DSPENGINE/3.0 (iOS)", forHTTPHeaderField: "User-Agent")
             if let (data, resp) = try? await URLSession.shared.data(for: req),
                let http = resp as? HTTPURLResponse, http.statusCode == 200,
                let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
@@ -71,13 +73,13 @@ public final class LRCLibService: ObservableObject {
                 return
             }
         }
-        
+
         // 2. Search fallback via /api/search
         let queryEnc = "\(cleanTitle) \(cleanArtist)".addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? ""
         let searchUrlStr = "https://lrclib.net/api/search?q=\(queryEnc)"
         if let url = URL(string: searchUrlStr) {
             var req = URLRequest(url: url)
-            req.setValue("PioneerDSP/4.1 (iOS)", forHTTPHeaderField: "User-Agent")
+            req.setValue("DSPENGINE/3.0 (iOS)", forHTTPHeaderField: "User-Agent")
             if let (data, resp) = try? await URLSession.shared.data(for: req),
                let http = resp as? HTTPURLResponse, http.statusCode == 200,
                let list = try? JSONSerialization.jsonObject(with: data) as? [[String: Any]],
@@ -88,12 +90,12 @@ public final class LRCLibService: ObservableObject {
                 return
             }
         }
-        
+
         let empty = LyricsResult(plainLyrics: "No lyrics available for this track.", syncedLyrics: [], isInstrumental: false)
         cache[key] = empty
         self.currentLyrics = empty
     }
-    
+
     private func parseLRCLibJson(_ dict: [String: Any]) -> LyricsResult {
         let isInst = dict["instrumental"] as? Bool ?? false
         let plain = dict["plainLyrics"] as? String
@@ -101,12 +103,12 @@ public final class LRCLibService: ObservableObject {
         let parsed = syncedStr != nil ? parseLrc(syncedStr!) : []
         return LyricsResult(plainLyrics: plain, syncedLyrics: parsed, isInstrumental: isInst)
     }
-    
+
     private func parseLrc(_ text: String) -> [SyncedLyricLine] {
         var lines: [SyncedLyricLine] = []
         let pattern = "\\[(\\d{2}):(\\d{2}(?:\\.\\d{1,3})?)\\](.*)"
         guard let regex = try? NSRegularExpression(pattern: pattern) else { return [] }
-        
+
         let rawLines = text.components(separatedBy: .newlines)
         for line in rawLines {
             let nsLine = line as NSString
@@ -124,21 +126,21 @@ public final class LRCLibService: ObservableObject {
         }
         return lines.sorted { $0.time < $1.time }
     }
-    
+
     private func cleanTrackTitle(_ t: String) -> String {
         return t.replacingOccurrences(of: "(Official Video)", with: "", options: .caseInsensitive)
             .replacingOccurrences(of: "[Official Audio]", with: "", options: .caseInsensitive)
             .replacingOccurrences(of: "(Audio)", with: "", options: .caseInsensitive)
             .trimmingCharacters(in: .whitespaces)
     }
-    
+
     private func cleanArtistName(_ a: String) -> String {
         return a.replacingOccurrences(of: " - Topic", with: "", options: .caseInsensitive)
             .trimmingCharacters(in: .whitespaces)
     }
 }
 
-// MARK: - YouTube Music Service (YouTube Data API v3 & Fallback Gateways)
+// MARK: - YouTube search metadata (playback uses the official visible YouTube player)
 public struct YouTubeTrackResult: Identifiable, Equatable {
     public let id: String
     public let videoId: String
@@ -146,7 +148,7 @@ public struct YouTubeTrackResult: Identifiable, Equatable {
     public let artist: String
     public let duration: TimeInterval
     public let artworkURL: String
-    
+
     public init(id: String, videoId: String, title: String, artist: String, duration: TimeInterval, artworkURL: String) {
         self.id = id
         self.videoId = videoId
@@ -155,106 +157,140 @@ public struct YouTubeTrackResult: Identifiable, Equatable {
         self.duration = duration
         self.artworkURL = artworkURL
     }
-    
+
     public var formattedDuration: String {
-        let mins = Int(duration) / 60
-        let secs = Int(duration) % 60
-        return String(format: "%d:%02d", mins, secs)
+        guard duration > 0 else { return "OPEN" }
+        return String(format: "%d:%02d", Int(duration) / 60, Int(duration) % 60)
+    }
+}
+
+private enum YouTubeAPIKeyStore {
+    private static let service = Bundle.main.bundleIdentifier ?? "com.avx.dsp-engine"
+    private static let account = "youtube-data-api-key"
+
+    static func load() -> String {
+        let query: [String: Any] = [
+            kSecClass as String: kSecClassGenericPassword,
+            kSecAttrService as String: service,
+            kSecAttrAccount as String: account,
+            kSecReturnData as String: true,
+            kSecMatchLimit as String: kSecMatchLimitOne
+        ]
+        var item: CFTypeRef?
+        guard SecItemCopyMatching(query as CFDictionary, &item) == errSecSuccess,
+              let data = item as? Data,
+              let value = String(data: data, encoding: .utf8) else { return "" }
+        return value
+    }
+
+    static func save(_ value: String) {
+        let query: [String: Any] = [
+            kSecClass as String: kSecClassGenericPassword,
+            kSecAttrService as String: service,
+            kSecAttrAccount as String: account
+        ]
+        SecItemDelete(query as CFDictionary)
+        guard !value.isEmpty, let data = value.data(using: .utf8) else { return }
+        var item = query
+        item[kSecValueData as String] = data
+        item[kSecAttrAccessible as String] = kSecAttrAccessibleWhenUnlockedThisDeviceOnly
+        SecItemAdd(item as CFDictionary, nil)
     }
 }
 
 @MainActor
 public final class YouTubeMusicService: ObservableObject {
     public static let shared = YouTubeMusicService()
-    
+
     @Published public var searchResults: [YouTubeTrackResult] = []
     @Published public var isSearching: Bool = false
-    @Published public var customApiKey: String = UserDefaults.standard.string(forKey: "pioneer_yt_api_key") ?? ""
-    
+    @Published public private(set) var customApiKey: String = YouTubeAPIKeyStore.load()
+    @Published public var errorMessage: String?
+
     public func setApiKey(_ key: String) {
-        let trimmed = key.trimmingCharacters(in: .whitespaces)
-        self.customApiKey = trimmed
-        if trimmed.isEmpty {
-            UserDefaults.standard.removeObject(forKey: "pioneer_yt_api_key")
-        } else {
-            UserDefaults.standard.set(trimmed, forKey: "pioneer_yt_api_key")
-        }
+        let trimmed = key.trimmingCharacters(in: .whitespacesAndNewlines)
+        customApiKey = trimmed
+        YouTubeAPIKeyStore.save(trimmed)
+        errorMessage = nil
+        searchResults = []
     }
-    
+
     public func search(query: String) async {
-        let q = query.trimmingCharacters(in: .whitespaces)
-        guard !q.isEmpty else {
-            self.searchResults = []
+        let trimmedQuery = query.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmedQuery.isEmpty else {
+            searchResults = []
+            errorMessage = nil
             return
         }
-        
-        self.isSearching = true
-        defer { self.isSearching = false }
-        
-        // 1. Try YouTube Data API v3 if custom key set
-        if !customApiKey.isEmpty {
-            let encQuery = q.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? ""
-            let urlStr = "https://www.googleapis.com/youtube/v3/search?part=snippet&type=video&videoCategoryId=10&maxResults=20&q=\(encQuery)&key=\(customApiKey)"
-            if let url = URL(string: urlStr),
-               let (data, resp) = try? await URLSession.shared.data(from: url),
-               let http = resp as? HTTPURLResponse, http.statusCode == 200,
-               let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-               let items = json["items"] as? [[String: Any]] {
-                var list: [YouTubeTrackResult] = []
-                for item in items {
-                    let idDict = item["id"] as? [String: Any]
-                    let vId = (idDict?["videoId"] as? String) ?? (item["id"] as? String) ?? ""
-                    let snip = item["snippet"] as? [String: Any] ?? [:]
-                    let title = (snip["title"] as? String) ?? "Unknown Track"
-                    let channel = (snip["channelTitle"] as? String) ?? "YouTube Music"
-                    let thumbs = snip["thumbnails"] as? [String: Any]
-                    let high = thumbs?["high"] as? [String: Any]
-                    let art = (high?["url"] as? String) ?? ""
-                    if !vId.isEmpty {
-                        list.append(YouTubeTrackResult(id: vId, videoId: vId, title: title, artist: channel, duration: 210, artworkURL: art))
-                    }
-                }
-                if !list.isEmpty {
-                    self.searchResults = list
-                    return
-                }
-            }
+        guard !customApiKey.isEmpty else {
+            searchResults = []
+            errorMessage = "Add a YouTube Data API key to search. Restrict it to the YouTube Data API and this iOS app."
+            return
         }
-        
-        // 2. High-Speed Fallback Public Gateways
-        let pipedInstances = [
-            "https://pipedapi.kavin.rocks",
-            "https://api.piped.private.coffee",
-            "https://pipedapi.leptons.xyz"
+
+        isSearching = true
+        errorMessage = nil
+        searchResults = []
+        defer { isSearching = false }
+
+        var components = URLComponents(string: "https://www.googleapis.com/youtube/v3/search")
+        components?.queryItems = [
+            URLQueryItem(name: "part", value: "snippet"),
+            URLQueryItem(name: "type", value: "video"),
+            URLQueryItem(name: "videoCategoryId", value: "10"),
+            URLQueryItem(name: "maxResults", value: "12"),
+            URLQueryItem(name: "q", value: trimmedQuery),
+            URLQueryItem(name: "key", value: customApiKey)
         ]
-        let encQ = q.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? ""
-        for base in pipedInstances {
-            let urlStr = "\(base)/search?q=\(encQ)&filter=music_songs"
-            if let url = URL(string: urlStr) {
-                var req = URLRequest(url: url)
-                req.timeoutInterval = 4.0
-                if let (data, resp) = try? await URLSession.shared.data(for: req),
-                   let http = resp as? HTTPURLResponse, http.statusCode == 200,
-                   let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-                   let items = json["items"] as? [[String: Any]] {
-                    var list: [YouTubeTrackResult] = []
-                    for item in items {
-                        let urlStr = (item["url"] as? String) ?? ""
-                        let vId = urlStr.replacingOccurrences(of: "/watch?v=", with: "").replacingOccurrences(of: "/", with: "")
-                        let title = (item["title"] as? String) ?? "Unknown"
-                        let uploader = (item["uploaderName"] as? String) ?? "YouTube Music"
-                        let thumb = (item["thumbnail"] as? String) ?? ""
-                        let dur = Double((item["duration"] as? Int) ?? 180)
-                        if !vId.isEmpty {
-                            list.append(YouTubeTrackResult(id: vId, videoId: vId, title: title, artist: uploader, duration: dur, artworkURL: thumb))
-                        }
-                    }
-                    if !list.isEmpty {
-                        self.searchResults = list
-                        return
-                    }
-                }
+        guard let url = components?.url else {
+            errorMessage = "Could not create the YouTube search request."
+            return
+        }
+
+        do {
+            var request = URLRequest(url: url)
+            request.timeoutInterval = 15
+            let (data, response) = try await URLSession.shared.data(for: request)
+            guard let http = response as? HTTPURLResponse else {
+                errorMessage = "YouTube returned an invalid response."
+                return
             }
+            guard http.statusCode == 200 else {
+                errorMessage = http.statusCode == 403
+                    ? "YouTube rejected the API key or the project has reached its quota. Check its API restrictions and quota."
+                    : "YouTube search failed (HTTP \(http.statusCode)). Try again later."
+                return
+            }
+
+            guard let json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
+                  let items = json["items"] as? [[String: Any]] else {
+                errorMessage = "YouTube returned an unreadable search response."
+                return
+            }
+
+            searchResults = items.compactMap { item in
+                guard let video = item["id"] as? [String: Any],
+                      let videoID = video["videoId"] as? String,
+                      !videoID.isEmpty else { return nil }
+                let snippet = item["snippet"] as? [String: Any] ?? [:]
+                let thumbnails = snippet["thumbnails"] as? [String: Any] ?? [:]
+                let image = (thumbnails["high"] as? [String: Any])
+                    ?? (thumbnails["medium"] as? [String: Any])
+                    ?? (thumbnails["default"] as? [String: Any])
+                return YouTubeTrackResult(
+                    id: videoID,
+                    videoId: videoID,
+                    title: (snippet["title"] as? String) ?? "YouTube video",
+                    artist: (snippet["channelTitle"] as? String) ?? "YouTube",
+                    duration: 0, // search.list does not return video duration
+                    artworkURL: (image?["url"] as? String) ?? ""
+                )
+            }
+            if searchResults.isEmpty {
+                errorMessage = "No YouTube videos found for that search."
+            }
+        } catch {
+            errorMessage = "Could not reach YouTube. Check your connection and try again."
         }
     }
 }
@@ -264,13 +300,13 @@ public struct LRCLyricsSheetView: View {
     @ObservedObject var dspEngine = AudioDSPEngine.shared
     @ObservedObject var lyricsService = LRCLibService.shared
     @Environment(\.dismiss) var dismiss
-    
+
     public init() {}
-    
+
     public var body: some View {
         ZStack {
             PioneerColors.carbonBg.ignoresSafeArea()
-            
+
             VStack(spacing: 20) {
                 // Header
                 HStack {
@@ -292,7 +328,7 @@ public struct LRCLyricsSheetView: View {
                 }
                 .padding(.horizontal, 20)
                 .padding(.top, 20)
-                
+
                 if lyricsService.isLoading {
                     Spacer()
                     ProgressView()
@@ -362,7 +398,7 @@ public struct LRCLyricsSheetView: View {
             }
         }
     }
-    
+
     private func isCurrentLine(_ line: SyncedLyricLine, allLines: [SyncedLyricLine], curTime: TimeInterval) -> Bool {
         guard let idx = allLines.firstIndex(where: { $0.id == line.id }) else { return false }
         if line.time > curTime { return false }
@@ -371,27 +407,25 @@ public struct LRCLyricsSheetView: View {
     }
 }
 
-// MARK: - Pioneer Audio DSP Engine (32-Bit Floating Point Audio Processing)
+// MARK: - DSP ENGINE local-audio processing pipeline
 @MainActor
 public final class AudioDSPEngine: ObservableObject {
     public static let shared = AudioDSPEngine()
-    
-    // Published State
-    @Published public var isPlaying: Bool = false
-    @Published public var isConcertHallEnabled: Bool = false
+
+    @Published public var isPlaying = false
+    @Published public var isConcertHallEnabled = false
     @Published public var currentPreset: DSPPreset = .flat
     @Published public var currentReverbRoom: ReverbRoomType = .concertHall
-    @Published public var reverbWetDryMix: Float = 0.0 // 0 to 100%
-    @Published public var superBassGain: Float = 0.0 // 0 to 12 dB
+    @Published public var reverbWetDryMix: Float = 0.0
+    @Published public var superBassGain: Float = 0.0
     @Published public var listeningPosition: ListeningPosition = .all
-    
-    // Track & Time Information
-    @Published public var trackTitle: String = "Concert Hall Acoustic Master"
-    @Published public var trackArtist: String = "Pioneer Philharmonic Studio"
+    @Published public var playbackError: String?
+
+    @Published public var trackTitle = "DSP ENGINE Test Signal"
+    @Published public var trackArtist = "Built-in audio demo"
     @Published public var currentTime: TimeInterval = 0.0
     @Published public var totalDuration: TimeInterval = 180.0
-    
-    // 10-Band EQ
+
     @Published public var eqBands: [EQBand] = [
         EQBand(id: 0, frequency: 31, label: "31Hz", gain: 0),
         EQBand(id: 1, frequency: 63, label: "63Hz", gain: 0),
@@ -404,366 +438,505 @@ public final class AudioDSPEngine: ObservableObject {
         EQBand(id: 8, frequency: 8000, label: "8kHz", gain: 0),
         EQBand(id: 9, frequency: 16000, label: "16kHz", gain: 0)
     ]
-    
-    // Core Audio Nodes
-    private var audioEngine: AVAudioEngine
-    private var playerNode: AVAudioPlayerNode
-    private var eqNode: AVAudioUnitEQ
-    private var reverbNode: AVAudioUnitReverb
-    
-    // Memory Buffer Cache (Prevents pause/play glitch)
+
+    private let audioEngine: AVAudioEngine
+    private let playerNode: AVAudioPlayerNode
+    private let eqNode: AVAudioUnitEQ
+    private let reverbNode: AVAudioUnitReverb
     private var activePCMBuffer: AVAudioPCMBuffer?
-    private var isPausedState: Bool = false
+    private var cachedDemoBuffer: AVAudioPCMBuffer?
+    private var activeAudioFile: AVAudioFile?
+    private var currentAudioFormat: AVAudioFormat
+    private var isPausedState = false
     private var playbackTimer: AnyCancellable?
-    
+    private var notificationObservers: [NSObjectProtocol] = []
+    private var wasPlayingBeforeInterruption = false
+
+    private static var demoFormat: AVAudioFormat {
+        AVAudioFormat(standardFormatWithSampleRate: 44_100, channels: 2)!
+    }
+
     public init() {
-        self.audioEngine = AVAudioEngine()
-        self.playerNode = AVAudioPlayerNode()
-        self.eqNode = AVAudioUnitEQ(numberOfBands: 10)
-        self.reverbNode = AVAudioUnitReverb()
-        
-        setupAudioSession()
-        setupEngineGraph()
-        setupEQParameters()
-        setupRemoteCommandCenter()
-        loadBuiltInDemo(title: "Concert Hall Acoustic Master", artist: "Pioneer Philharmonic Studio", duration: 180)
-        startPlaybackClock()
-    }
-    
-    private func setupAudioSession() {
-        do {
-            try AVAudioSession.sharedInstance().setCategory(.playback, mode: .default, options: [.mixWithOthers])
-            try AVAudioSession.sharedInstance().setActive(true)
-        } catch {
-            print("Audio Session Setup Error: \(error)")
-        }
-    }
-    
-    private func setupEngineGraph() {
+        audioEngine = AVAudioEngine()
+        playerNode = AVAudioPlayerNode()
+        eqNode = AVAudioUnitEQ(numberOfBands: 10)
+        reverbNode = AVAudioUnitReverb()
+        currentAudioFormat = Self.demoFormat
+
         audioEngine.attach(playerNode)
         audioEngine.attach(eqNode)
         audioEngine.attach(reverbNode)
-        
-        let format = audioEngine.outputNode.outputFormat(forBus: 0)
-        audioEngine.connect(playerNode, to: eqNode, format: format)
-        audioEngine.connect(eqNode, to: reverbNode, format: format)
-        audioEngine.connect(reverbNode, to: audioEngine.mainMixerNode, format: format)
-        
-        reverbNode.loadFactoryPreset(currentReverbRoom.avPreset)
-        reverbNode.wetDryMix = 0.0
-        
+        setupAudioSession()
+        setupEngineGraph(for: currentAudioFormat)
+        setupRemoteCommandCenter()
+        observeAudioSessionChanges()
+        loadBuiltInDemo(title: "DSP ENGINE Test Signal", artist: "Built-in audio demo", duration: 30)
+        startPlaybackClock()
+    }
+
+    private func setupAudioSession() {
         do {
-            try audioEngine.start()
+            try AVAudioSession.sharedInstance().setCategory(.playback, mode: .default)
         } catch {
-            print("Failed to start AVAudioEngine: \(error)")
+            playbackError = "iOS could not activate the audio session. Check audio output and try again."
         }
     }
-    
-    private func setupEQParameters() {
-        let freqs: [Float] = [31, 63, 125, 250, 500, 1000, 2000, 4000, 8000, 16000]
-        for (i, f) in freqs.enumerated() {
-            let band = eqNode.bands[i]
-            band.frequency = f
+
+    /// Reconnect all DSP nodes to the source's PCM format. Matching the player-node
+    /// connection to the actual source avoids AVAudioPlayerNode format-assertion crashes.
+    private func setupEngineGraph(for format: AVAudioFormat) {
+        audioEngine.stop()
+        playerNode.stop()
+        audioEngine.disconnectNodeOutput(playerNode)
+        audioEngine.disconnectNodeOutput(eqNode)
+        audioEngine.disconnectNodeOutput(reverbNode)
+
+        audioEngine.connect(playerNode, to: eqNode, format: format)
+        playerNode.pan = listeningPosition.balancePan
+        audioEngine.connect(eqNode, to: reverbNode, format: format)
+        audioEngine.connect(reverbNode, to: audioEngine.mainMixerNode, format: format)
+        currentAudioFormat = format
+        configureEQParameters(sampleRate: format.sampleRate)
+        reverbNode.loadFactoryPreset(currentReverbRoom.avPreset)
+        reverbNode.wetDryMix = isConcertHallEnabled ? reverbWetDryMix : 0
+        audioEngine.prepare()
+    }
+
+    private func configureEQParameters(sampleRate: Double) {
+        let maximumFrequency = Float(max(20, sampleRate * 0.45))
+        for index in eqBands.indices {
+            let band = eqNode.bands[index]
+            band.frequency = min(eqBands[index].frequency, maximumFrequency)
             band.bandwidth = 1.0
             band.filterType = .parametric
-            band.gain = 0.0
+            band.gain = eqBands[index].gain
             band.bypass = false
         }
     }
-    
-    // MARK: - Lock Screen & Remote Command Center Integration
+
+    private func formatsMatch(_ lhs: AVAudioFormat, _ rhs: AVAudioFormat) -> Bool {
+        abs(lhs.sampleRate - rhs.sampleRate) < 0.5
+            && lhs.channelCount == rhs.channelCount
+            && lhs.commonFormat == rhs.commonFormat
+            && lhs.isInterleaved == rhs.isInterleaved
+    }
+
+    private func observeAudioSessionChanges() {
+        let center = NotificationCenter.default
+        let interruption = center.addObserver(
+            forName: AVAudioSession.interruptionNotification,
+            object: AVAudioSession.sharedInstance(),
+            queue: .main
+        ) { [weak self] note in
+            Task { @MainActor [weak self] in self?.handleAudioInterruption(note) }
+        }
+        let engineChange = center.addObserver(
+            forName: .AVAudioEngineConfigurationChange,
+            object: audioEngine,
+            queue: .main
+        ) { [weak self] _ in
+            Task { @MainActor [weak self] in self?.repairAudioEngineAfterConfigurationChange() }
+        }
+        notificationObservers = [interruption, engineChange]
+    }
+
+    private func handleAudioInterruption(_ notification: Notification) {
+        guard let rawType = notification.userInfo?[AVAudioSessionInterruptionTypeKey] as? UInt,
+              let type = AVAudioSession.InterruptionType(rawValue: rawType) else { return }
+        if type == .began {
+            wasPlayingBeforeInterruption = isPlaying
+            if isPlaying { pause() }
+        } else if type == .ended {
+            let rawOptions = notification.userInfo?[AVAudioSessionInterruptionOptionKey] as? UInt ?? 0
+            let options = AVAudioSession.InterruptionOptions(rawValue: rawOptions)
+            if wasPlayingBeforeInterruption && options.contains(.shouldResume) { play() }
+            wasPlayingBeforeInterruption = false
+        }
+    }
+
+    private func repairAudioEngineAfterConfigurationChange() {
+        let shouldResume = isPlaying
+        if activePCMBuffer != nil && !formatsMatch(currentAudioFormat, Self.demoFormat) {
+            setupEngineGraph(for: Self.demoFormat)
+        }
+        guard shouldResume else { return }
+        do {
+            try AVAudioSession.sharedInstance().setActive(true)
+            if !audioEngine.isRunning { try audioEngine.start() }
+        } catch {
+            reportPlaybackError("Audio output changed and the DSP engine could not restart.")
+            return
+        }
+        startFreshPlayback()
+    }
+
+    // MARK: Lock Screen / Control Center commands
     private func setupRemoteCommandCenter() {
-        let commandCenter = MPRemoteCommandCenter.shared()
-        
-        commandCenter.playCommand.addTarget { [weak self] _ in
-            guard let self = self else { return .commandFailed }
-            Task { @MainActor in
-                self.play()
-            }
+        let center = MPRemoteCommandCenter.shared()
+        center.playCommand.addTarget { [weak self] _ in
+            Task { @MainActor [weak self] in self?.play() }
             return .success
         }
-        
-        commandCenter.pauseCommand.addTarget { [weak self] _ in
-            guard let self = self else { return .commandFailed }
-            Task { @MainActor in
-                self.pause()
-            }
+        center.pauseCommand.addTarget { [weak self] _ in
+            Task { @MainActor [weak self] in self?.pause() }
             return .success
         }
-        
-        commandCenter.togglePlayPauseCommand.addTarget { [weak self] _ in
-            guard let self = self else { return .commandFailed }
-            Task { @MainActor in
-                self.togglePlayPause()
-            }
+        center.togglePlayPauseCommand.addTarget { [weak self] _ in
+            Task { @MainActor [weak self] in self?.togglePlayPause() }
             return .success
         }
-        
-        commandCenter.nextTrackCommand.addTarget { _ in
-            Task { @MainActor in
-                MusicLibraryManager.shared.playNext()
-            }
+        center.nextTrackCommand.addTarget { _ in
+            Task { @MainActor in MusicLibraryManager.shared.playNext() }
             return .success
         }
-        
-        commandCenter.previousTrackCommand.addTarget { _ in
-            Task { @MainActor in
-                MusicLibraryManager.shared.playPrevious()
-            }
+        center.previousTrackCommand.addTarget { _ in
+            Task { @MainActor in MusicLibraryManager.shared.playPrevious() }
             return .success
         }
-        
-        commandCenter.changePlaybackPositionCommand.addTarget { [weak self] event in
-            guard let self = self, let posEvent = event as? MPChangePlaybackPositionCommandEvent else {
-                return .commandFailed
-            }
-            Task { @MainActor in
-                self.seek(to: posEvent.positionTime / max(1.0, self.totalDuration))
+        center.changePlaybackPositionCommand.addTarget { [weak self] event in
+            guard let position = event as? MPChangePlaybackPositionCommandEvent else { return .commandFailed }
+            Task { @MainActor [weak self] in
+                guard let self else { return }
+                self.seek(to: position.positionTime / max(1.0, self.totalDuration))
             }
             return .success
         }
     }
-    
+
     public func updateNowPlayingInfo() {
-        var info = [String: Any]()
-        info[MPMediaItemPropertyTitle] = trackTitle
-        info[MPMediaItemPropertyArtist] = trackArtist
-        info[MPMediaItemPropertyPlaybackDuration] = totalDuration
-        info[MPNowPlayingInfoPropertyElapsedPlaybackTime] = currentTime
-        info[MPNowPlayingInfoPropertyPlaybackRate] = isPlaying ? 1.0 : 0.0
-        
+        var info: [String: Any] = [
+            MPMediaItemPropertyTitle: trackTitle,
+            MPMediaItemPropertyArtist: trackArtist,
+            MPMediaItemPropertyPlaybackDuration: totalDuration,
+            MPNowPlayingInfoPropertyElapsedPlaybackTime: currentTime,
+            MPNowPlayingInfoPropertyPlaybackRate: isPlaying ? 1.0 : 0.0
+        ]
         if let image = UIImage(named: "Logo") {
             info[MPMediaItemPropertyArtwork] = MPMediaItemArtwork(boundsSize: image.size) { _ in image }
         }
-        
         MPNowPlayingInfoCenter.default().nowPlayingInfo = info
     }
-    
-    // FIXED PAUSE / PLAY LOGIC (Zero Glitch)
+
+    // MARK: Playback
     public func togglePlayPause() {
-        if isPlaying {
-            pause()
-        } else {
-            play()
-        }
+        isPlaying ? pause() : play()
     }
-    
+
     public func play() {
-        if !audioEngine.isRunning {
-            try? audioEngine.start()
+        guard activeAudioFile != nil || activePCMBuffer != nil else {
+            reportPlaybackError("Select a local audio track before pressing Play.")
+            return
         }
-        
+        do {
+            try AVAudioSession.sharedInstance().setActive(true)
+            if !audioEngine.isRunning { try audioEngine.start() }
+        } catch {
+            reportPlaybackError("iOS could not start audio playback. Check the selected output and try again.")
+            return
+        }
+
         if isPausedState {
             playerNode.play()
             isPausedState = false
             isPlaying = true
+            updateNowPlayingInfo()
         } else {
-            startFreshBufferPlayback()
+            startFreshPlayback()
         }
-        updateNowPlayingInfo()
     }
-    
+
     public func pause() {
+        guard isPlaying || playerNode.isPlaying else { return }
         playerNode.pause()
         isPausedState = true
         isPlaying = false
         updateNowPlayingInfo()
     }
-    
-    private func startFreshBufferPlayback() {
-        guard let buffer = activePCMBuffer else { return }
+
+    public func stop() {
         playerNode.stop()
-        playerNode.scheduleBuffer(buffer, at: nil, options: .loops, completionHandler: nil)
-        playerNode.play()
         isPausedState = false
-        isPlaying = true
+        isPlaying = false
+        currentTime = 0
         updateNowPlayingInfo()
     }
-    
-    // Load Custom Audio File into PCM Buffer
-    public func loadAudioFile(url: URL, title: String? = nil, artist: String? = nil, duration: TimeInterval = 180) {
+
+    private func startFreshPlayback(from startTime: TimeInterval = 0) {
+        guard activeAudioFile != nil || activePCMBuffer != nil else { return }
+        do {
+            if !audioEngine.isRunning { try audioEngine.start() }
+        } catch {
+            reportPlaybackError("The DSP audio graph could not be restarted.")
+            return
+        }
+
+        playerNode.stop()
+        if let file = activeAudioFile {
+            let startFrame = AVAudioFramePosition(max(0, min(Double(file.length), startTime * file.processingFormat.sampleRate)))
+            scheduleFileSegment(file, from: startFrame, shouldPlay: true)
+        } else if let buffer = activePCMBuffer {
+            playerNode.scheduleBuffer(buffer, at: nil, options: .loops, completionHandler: nil)
+            playerNode.play()
+            isPausedState = false
+            isPlaying = true
+            currentTime = startTime
+        }
+        updateNowPlayingInfo()
+    }
+
+    private func scheduleFileSegment(_ file: AVAudioFile, from startFrame: AVAudioFramePosition, shouldPlay: Bool) {
+        let totalFrames = file.length
+        let safeStart = max(0, min(startFrame, max(0, totalFrames - 1)))
+        let remaining = max(0, totalFrames - safeStart)
+        guard remaining > 0 else {
+            reportPlaybackError("This audio file has no playable frames.")
+            return
+        }
+        let frameCount = AVAudioFrameCount(min(remaining, Int64(UInt32.max)))
+        playerNode.scheduleSegment(file, startingFrame: safeStart, frameCount: frameCount, at: nil) { [weak self] in
+            Task { @MainActor [weak self] in self?.handleFilePlaybackFinished() }
+        }
+        if shouldPlay {
+            playerNode.play()
+            isPlaying = true
+            isPausedState = false
+        } else {
+            isPlaying = false
+            isPausedState = true
+        }
+    }
+
+    private func handleFilePlaybackFinished() {
+        guard isPlaying, activeAudioFile != nil else { return }
+        currentTime = 0
+        if MusicLibraryManager.shared.isRepeatEnabled {
+            startFreshPlayback()
+        } else {
+            isPlaying = false
+            isPausedState = false
+            updateNowPlayingInfo()
+            MusicLibraryManager.shared.playNext()
+            play()
+        }
+    }
+
+    // MARK: File / demo loading
+    public func loadAudioFile(url: URL, title: String? = nil, artist: String? = nil, duration: TimeInterval = 0) {
         do {
             let file = try AVAudioFile(forReading: url)
             let format = file.processingFormat
-            let frameCount = AVAudioFrameCount(file.length)
-            guard let buffer = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: frameCount) else { return }
-            try file.read(into: buffer)
-            
-            self.activePCMBuffer = buffer
-            self.trackTitle = title ?? url.deletingPathExtension().lastPathComponent
-            self.trackArtist = artist ?? "Imported Track"
-            self.totalDuration = duration > 0 ? duration : Double(file.length) / format.sampleRate
-            self.currentTime = 0.0
-            self.isPausedState = false
-            
-            if isPlaying {
-                startFreshBufferPlayback()
+            guard format.sampleRate.isFinite, format.sampleRate >= 8_000, format.sampleRate <= 192_000,
+                  format.channelCount > 0, format.channelCount <= 2 else {
+                reportPlaybackError("This file’s audio format is not supported yet. Use a stereo or mono audio file at 8–192 kHz.")
+                return
             }
+
+            let shouldResume = isPlaying
+            playerNode.stop()
+            isPlaying = false
+            isPausedState = false
+            activePCMBuffer = nil
+            if !formatsMatch(currentAudioFormat, format) { setupEngineGraph(for: format) }
+
+            activeAudioFile = file
+            trackTitle = title ?? url.deletingPathExtension().lastPathComponent
+            trackArtist = artist ?? "Imported audio"
+            let measuredDuration = Double(file.length) / format.sampleRate
+            totalDuration = measuredDuration.isFinite && measuredDuration > 0 ? measuredDuration : max(0, duration)
+            currentTime = 0
+            playbackError = nil
             updateNowPlayingInfo()
+            if shouldResume { startFreshPlayback() }
         } catch {
-            print("Failed to read audio file into buffer: \(error)")
+            reportPlaybackError("Couldn’t read this audio file. It may be DRM-protected, damaged, or an unsupported format.")
         }
     }
-    
-    // Load Built-In Demo Synthesizer
+
     public func loadBuiltInDemo(title: String, artist: String, duration: TimeInterval) {
-        self.trackTitle = title
-        self.trackArtist = artist
-        self.totalDuration = duration
-        self.currentTime = 0.0
-        self.isPausedState = false
-        
-        let sampleRate: Double = 44100.0
-        let loopDuration: Double = 3.5
-        let frameCount = AVAudioFrameCount(sampleRate * loopDuration)
-        
-        guard let format = AVAudioFormat(standardFormatWithSampleRate: sampleRate, channels: 2),
-              let buffer = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: frameCount) else { return }
-        
-        buffer.frameLength = frameCount
-        let left = buffer.floatChannelData![0]
-        let right = buffer.floatChannelData![1]
-        
-        let chordFreqs = [130.81, 196.00, 246.94, 293.66, 329.63, 392.00]
-        for f in 0..<Int(frameCount) {
-            let t = Double(f) / sampleRate
-            var sl: Float = 0.0
-            var sr: Float = 0.0
-            for (idx, freq) in chordFreqs.enumerated() {
-                let phase = Double(idx) * 0.35
-                let valL = sin(2.0 * .pi * freq * t) + 0.3 * sin(4.0 * .pi * freq * t)
-                let valR = sin(2.0 * .pi * freq * t + phase) + 0.3 * sin(4.0 * .pi * freq * t + phase)
-                sl += Float(valL * 0.12)
-                sr += Float(valR * 0.12)
-            }
-            let pulse = sin(2.0 * .pi * 65.41 * t) * (0.5 + 0.5 * sin(2.0 * .pi * 1.2 * t))
-            sl += Float(pulse * 0.22)
-            sr += Float(pulse * 0.22)
-            left[f] = sl
-            right[f] = sr
+        let shouldResume = isPlaying
+        if !formatsMatch(currentAudioFormat, Self.demoFormat) {
+            setupEngineGraph(for: Self.demoFormat)
         }
-        
-        self.activePCMBuffer = buffer
-        if isPlaying {
-            startFreshBufferPlayback()
+        playerNode.stop()
+        isPlaying = false
+        playbackError = nil
+        activeAudioFile = nil
+        if cachedDemoBuffer == nil { cachedDemoBuffer = makeDemoBuffer() }
+        guard let demoBuffer = cachedDemoBuffer else {
+            reportPlaybackError("The built-in audio test signal could not be created.")
+            return
         }
+        activePCMBuffer = demoBuffer
+        trackTitle = title
+        trackArtist = artist
+        totalDuration = max(1, duration)
+        currentTime = 0
+        isPausedState = false
         updateNowPlayingInfo()
+        if shouldResume { startFreshPlayback() }
     }
-    
-    // Real-Time Clock
+
+    private func makeDemoBuffer() -> AVAudioPCMBuffer? {
+        let format = Self.demoFormat
+        let sampleRate = format.sampleRate
+        let duration = 2.5
+        let frameCount = AVAudioFrameCount(sampleRate * duration)
+        guard let buffer = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: frameCount),
+              let channels = buffer.floatChannelData else {
+            return nil
+        }
+
+        buffer.frameLength = frameCount
+        let left = channels[0]
+        let right = channels[1]
+        for frame in 0..<Int(frameCount) {
+            let time = Double(frame) / sampleRate
+            let bass = sin(2 * .pi * 65.41 * time) * (0.5 + 0.5 * sin(2 * .pi * 1.2 * time))
+            let chord = sin(2 * .pi * 130.81 * time) * 0.16
+                + sin(2 * .pi * 196.0 * time + 0.35) * 0.12
+                + sin(2 * .pi * 261.63 * time + 0.7) * 0.09
+            left[frame] = Float(chord + bass * 0.20)
+            right[frame] = Float(chord + bass * 0.20)
+        }
+        return buffer
+    }
+
+    // MARK: Playback clock and seek
     private func startPlaybackClock() {
         playbackTimer = Timer.publish(every: 1.0, on: .main, in: .common)
             .autoconnect()
             .sink { [weak self] _ in
-                guard let self = self, self.isPlaying else { return }
-                self.currentTime += 1.0
-                if self.currentTime >= self.totalDuration {
-                    self.currentTime = 0.0
+                guard let self, self.isPlaying else { return }
+                if self.activePCMBuffer != nil, self.currentTime + 1.0 >= self.totalDuration {
+                    self.currentTime = 0
+                } else {
+                    self.currentTime = min(self.currentTime + 1.0, self.totalDuration)
                 }
                 self.updateNowPlayingInfo()
             }
     }
-    
+
     public func seek(to progress: Double) {
-        self.currentTime = max(0, min(totalDuration, totalDuration * progress))
+        guard totalDuration.isFinite, totalDuration > 0 else { return }
+        let clamped = max(0, min(1, progress))
+        let targetTime = totalDuration * clamped
+        currentTime = targetTime
+        if let file = activeAudioFile {
+            let shouldPlay = isPlaying
+            let frame = AVAudioFramePosition(targetTime * file.processingFormat.sampleRate)
+            playerNode.stop()
+            scheduleFileSegment(file, from: frame, shouldPlay: shouldPlay)
+        }
         updateNowPlayingInfo()
     }
-    
-    // DSP Controls
+
+    public func reportPlaybackError(_ message: String) {
+        playbackError = message
+        playerNode.stop()
+        isPlaying = false
+        isPausedState = false
+        updateNowPlayingInfo()
+    }
+
+    public func clearPlaybackError() {
+        playbackError = nil
+    }
+
+    // MARK: DSP controls
     public func toggleConcertHall() {
         isConcertHallEnabled.toggle()
-        let impact = UIImpactFeedbackGenerator(style: .medium)
-        impact.impactOccurred()
-        
+        UIImpactFeedbackGenerator(style: .medium).impactOccurred()
         if isConcertHallEnabled {
+            currentPreset = .concertHall
             currentReverbRoom = .concertHall
             reverbNode.loadFactoryPreset(.mediumHall)
-            reverbWetDryMix = 65.0
-            reverbNode.wetDryMix = 65.0
-            
+            reverbWetDryMix = 65
+            reverbNode.wetDryMix = 65
             setEQBandGain(index: 1, gain: 4.5)
             setEQBandGain(index: 8, gain: 3.5)
             setEQBandGain(index: 9, gain: 4.0)
         } else {
-            reverbWetDryMix = 0.0
-            reverbNode.wetDryMix = 0.0
+            reverbWetDryMix = 0
+            reverbNode.wetDryMix = 0
+            if currentPreset == .concertHall { currentPreset = .flat }
             applyPreset(currentPreset)
         }
     }
-    
+
     public func setReverbRoom(_ room: ReverbRoomType) {
         currentReverbRoom = room
         reverbNode.loadFactoryPreset(room.avPreset)
-        if isConcertHallEnabled {
-            reverbNode.wetDryMix = reverbWetDryMix
-        }
+        if isConcertHallEnabled { reverbNode.wetDryMix = reverbWetDryMix }
     }
-    
-    public func setReverbWetDry(_ val: Float) {
-        reverbWetDryMix = val
-        if isConcertHallEnabled {
-            reverbNode.wetDryMix = val
-        }
+
+    public func setReverbWetDry(_ value: Float) {
+        let clamped = max(0, min(100, value))
+        reverbWetDryMix = clamped
+        if isConcertHallEnabled { reverbNode.wetDryMix = clamped }
     }
-    
+
     public func setSuperBass(_ gain: Float) {
-        superBassGain = gain
-        setEQBandGain(index: 0, gain: gain * 0.7)
-        setEQBandGain(index: 1, gain: gain)
+        let clamped = max(0, min(12, gain))
+        superBassGain = clamped
+        setEQBandGain(index: 0, gain: clamped * 0.7)
+        setEQBandGain(index: 1, gain: clamped)
     }
-    
+
     public func setEQBandGain(index: Int, gain: Float) {
-        guard index >= 0 && index < eqBands.count else { return }
-        eqBands[index].gain = gain
-        eqNode.bands[index].gain = gain
+        guard eqBands.indices.contains(index) else { return }
+        let clamped = max(-12, min(12, gain))
+        eqBands[index].gain = clamped
+        eqNode.bands[index].gain = clamped
     }
-    
-    public func setListeningPosition(_ pos: ListeningPosition) {
-        listeningPosition = pos
-        let impact = UIImpactFeedbackGenerator(style: .light)
-        impact.impactOccurred()
+
+    public func setListeningPosition(_ position: ListeningPosition) {
+        listeningPosition = position
+        playerNode.pan = position.balancePan
+        UIImpactFeedbackGenerator(style: .light).impactOccurred()
     }
-    
-    public func setPosition(_ pos: ListeningPosition) {
-        setListeningPosition(pos)
+
+    public func setPosition(_ position: ListeningPosition) {
+        setListeningPosition(position)
     }
-    
+
     public func resetEQToZero() {
-        for i in 0..<eqBands.count {
-            setEQBandGain(index: i, gain: 0.0)
-        }
+        for index in eqBands.indices { setEQBandGain(index: index, gain: 0) }
+        superBassGain = 0
         applyPreset(.flat)
     }
-    
+
     public func applyPreset(_ preset: DSPPreset) {
         currentPreset = preset
         switch preset {
         case .flat:
-            for i in 0..<eqBands.count { setEQBandGain(index: i, gain: 0) }
-            setSuperBass(0.0)
+            for index in eqBands.indices { setEQBandGain(index: index, gain: 0) }
+            setSuperBass(0)
+            if isConcertHallEnabled {
+                isConcertHallEnabled = false
+                reverbWetDryMix = 0
+                reverbNode.wetDryMix = 0
+            }
         case .concertHall:
-            for i in 0..<eqBands.count { setEQBandGain(index: i, gain: 0) }
-            setSuperBass(0.0)
+            for index in eqBands.indices { setEQBandGain(index: index, gain: 0) }
+            setSuperBass(0)
             if !isConcertHallEnabled { toggleConcertHall() }
         case .superBass:
             let gains: [Float] = [6, 8, 6, 2, 0, 0, 0, 1, 2, 3]
-            for (i, g) in gains.enumerated() { setEQBandGain(index: i, gain: g) }
-            setSuperBass(9.0)
+            for (index, gain) in gains.enumerated() { setEQBandGain(index: index, gain: gain) }
+            superBassGain = 9
         case .dynamic:
             let gains: [Float] = [5, 4, 2, 0, -1, 1, 3, 5, 6, 5]
-            for (i, g) in gains.enumerated() { setEQBandGain(index: i, gain: g) }
-            setSuperBass(5.0)
+            for (index, gain) in gains.enumerated() { setEQBandGain(index: index, gain: gain) }
+            superBassGain = 5
         case .vocal:
             let gains: [Float] = [-2, -1, 0, 2, 4, 5, 4, 2, 1, 0]
-            for (i, g) in gains.enumerated() { setEQBandGain(index: i, gain: g) }
-            setSuperBass(0.0)
+            for (index, gain) in gains.enumerated() { setEQBandGain(index: index, gain: gain) }
+            superBassGain = 0
         case .club:
             let gains: [Float] = [7, 7, 4, 1, -1, 1, 3, 5, 6, 6]
-            for (i, g) in gains.enumerated() { setEQBandGain(index: i, gain: g) }
-            setSuperBass(7.0)
+            for (index, gain) in gains.enumerated() { setEQBandGain(index: index, gain: gain) }
+            superBassGain = 7
         }
-        
-        let impact = UIImpactFeedbackGenerator(style: .medium)
-        impact.impactOccurred()
+        UIImpactFeedbackGenerator(style: .medium).impactOccurred()
     }
 }

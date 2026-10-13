@@ -1,43 +1,35 @@
-# Pioneer DSP for iOS 🍏
-**Audiophile Audio Effects Engine, 10-Band Graphic Equalizer, Spotify Remote & Native Swift Music Player**
+# DSP ENGINE for iOS
 
-[![Build iOS IPA](https://github.com/m1ckey-bpl/ios-engine/actions/workflows/build-ios.yml/badge.svg)](https://github.com/m1ckey-bpl/ios-engine/actions/workflows/build-ios.yml)
-[![Release](https://img.shields.io/github/v/release/m1ckey-bpl/ios-engine?color=orange)](https://github.com/m1ckey-bpl/ios-engine/releases)
+**made by avx**
 
----
+DSP ENGINE is a native SwiftUI audio-effects app. Local, non-DRM audio files are played through an `AVAudioEngine` graph with a 10-band EQ and reverb controls. Imported tracks stay in the app’s sandbox.
 
-## 📱 Overview
+## Playback boundaries
 
-**Pioneer DSP for iOS** is a pure native iOS audio application engineered in Swift and SwiftUI. It features a hardware-accelerated DSP processing pipeline built on top of Apple's AVFoundation and AudioToolbox frameworks.
+- **Local files:** import compatible mono or stereo audio from Files to use the DSP chain.
+- **Spotify:** playlist links open the official Spotify app or Spotify web player. Spotify streams are not captured or DSP-processed. The repository does not currently include Spotify OAuth/App Remote credentials, so it does not claim in-app remote playback control.
+- **YouTube:** search uses the YouTube Data API v3 when the user provides a key; a result opens in a visible official YouTube embedded player. YouTube media is not extracted, cached, or processed by DSP ENGINE.
 
-### 🤖 Looking for the Android Version?
-The Android APK is now maintained in its own dedicated repository:
-👉 **[github.com/m1ckey-bpl/pioneer-dsp-android](https://github.com/m1ckey-bpl/pioneer-dsp-android)**
+The YouTube API key is entered on-device and stored in iOS Keychain. Restrict the key to YouTube Data API v3 and the iOS app bundle ID (`com.pioneerdsp.app`). No API key or OAuth token is committed in this repository.
 
----
+## Build an unsigned iOS IPA
 
-## ✨ iOS Features:
-* **Native Swift & SwiftUI**: High-performance 60fps UI matching iOS design conventions.
-* **10-Band Graphic Equalizer**: AudioUnit EQ faders across ISO frequencies.
-* **Todoroki Super Bass**: Dual-stage low-shelf and peaking bass enhancement.
-* **Concert Hall 3D Reverb**: Environmental convolution and acoustic simulation.
-* **Spotify Remote Integration**: Control playback telemetry and playlists via Spotify Web API.
-* **Local Music Playback**: Import lossless FLAC, ALAC, WAV, AAC, and MP3 files via iOS Files app.
+Requirements: macOS, Xcode, and an iOS 17+ deployment target.
 
----
-
-## 🛠️ Building for iOS
-
-### Requirements:
-* macOS Sonoma (or newer)
-* Xcode 15+
-* iOS Deployment Target: 16.0+
-
-### Build Unsigned IPA:
 ```bash
-xcodebuild -project ios-engine.xcodeproj            -scheme ios-engine            -configuration Release            -destination 'generic/platform=iOS'            -derivedDataPath build            CODE_SIGNING_ALLOWED=NO clean build
+xcodebuild -project ios-engine.xcodeproj \
+  -scheme ios-engine \
+  -configuration Release \
+  -destination 'generic/platform=iOS' \
+  -derivedDataPath build \
+  CODE_SIGNING_ALLOWED=NO \
+  CODE_SIGNING_REQUIRED=NO \
+  CODE_SIGN_IDENTITY="" \
+  clean build
 
 mkdir -p Payload
 cp -R build/Build/Products/Release-iphoneos/ios-engine.app Payload/
-zip -r -y Pioneer_DSP_unsigned.ipa Payload
+zip -r -y DSP_ENGINE_unsigned.ipa Payload
 ```
+
+The CI IPA is **unsigned**. Sign it with a valid Apple development/distribution identity and matching provisioning profile—or use a trusted sideloading workflow—before installation. A successful CI build does not prove on-device playback, signing, installation, or crash-free runtime.

@@ -5,46 +5,26 @@ public struct MainDSPView: View {
     @ObservedObject var libraryManager = MusicLibraryManager.shared
     @State private var showMultiPicker: Bool = false
     @State private var showLyricsSheet: Bool = false
-    
+
     public init() {}
-    
+
     public var body: some View {
         ScrollView(showsIndicators: false) {
             VStack(spacing: 18) {
                 Spacer().frame(height: 6)
-                
+
                 // Top Header Bar
                 HStack(spacing: 12) {
-                    Image("Logo")
-                        .resizable()
-                        .scaledToFit()
-                        .frame(width: 44, height: 44)
-                        .clipShape(RoundedRectangle(cornerRadius: 12))
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 12)
-                                .stroke(PioneerColors.amberOrange, lineWidth: 1.5)
-                        )
-                        .shadow(color: PioneerColors.amberOrange.opacity(0.4), radius: 8)
-                    
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text("PIONEER DSP")
-                            .font(.system(size: 19, weight: .black, design: .rounded))
-                            .tracking(1.5)
-                            .foregroundColor(.white)
-                        
-                        Text("SOUND TUNE ACOUSTIC ENGINE")
-                            .font(.system(size: 9, weight: .bold, design: .monospaced))
-                            .foregroundColor(PioneerColors.amberOrange)
-                    }
-                    
+                    DSPLogoMark()
+
                     Spacer()
-                    
+
                     // Hi-Res Audio Badge
                     VStack(alignment: .trailing, spacing: 2) {
-                        Text("HI-RES")
+                        Text("LOCAL")
                             .font(.system(size: 9, weight: .black, design: .monospaced))
                             .foregroundColor(PioneerColors.hiFiGold)
-                        Text("96kHz/24b")
+                        Text("DSP AUDIO")
                             .font(.system(size: 8, weight: .bold, design: .monospaced))
                             .foregroundColor(.white.opacity(0.6))
                     }
@@ -58,7 +38,7 @@ public struct MainDSPView: View {
                     )
                 }
                 .padding(.horizontal, 20)
-                
+
                 // Animated Concert Hall Toggle Button
                 Button(action: {
                     dspEngine.toggleConcertHall()
@@ -73,7 +53,7 @@ public struct MainDSPView: View {
                                     .font(.system(size: 22))
                                     .foregroundColor(dspEngine.isConcertHallEnabled ? PioneerColors.amberOrange : Color.white.opacity(0.4))
                             }
-                            
+
                             VStack(alignment: .leading, spacing: 3) {
                                 HStack(spacing: 6) {
                                     Text("CONCERT HALL ACOUSTICS")
@@ -85,14 +65,14 @@ public struct MainDSPView: View {
                                             .frame(width: 7, height: 7)
                                     }
                                 }
-                                
+
                                 Text(dspEngine.isConcertHallEnabled ? "3D Spatial Reverb Active • Live Stage Acoustics" : "Tap to Engage Real-Time Concert Hall Reverb")
                                     .font(.system(size: 11, weight: .medium))
                                     .foregroundColor(dspEngine.isConcertHallEnabled ? PioneerColors.cyberCyan : PioneerColors.textMuted)
                             }
-                            
+
                             Spacer()
-                            
+
                             Text(dspEngine.isConcertHallEnabled ? "ACTIVE" : "ENGAGE")
                                 .font(.system(size: 11, weight: .black, design: .monospaced))
                                 .foregroundColor(dspEngine.isConcertHallEnabled ? .black : .white)
@@ -108,27 +88,27 @@ public struct MainDSPView: View {
                     .animation(.spring(response: 0.35, dampingFraction: 0.65), value: dspEngine.isConcertHallEnabled)
                 }
                 .padding(.horizontal, 20)
-                
+
                 // Real-Time Audio Spectrum Screen
                 VStack(alignment: .leading, spacing: 8) {
                     HStack {
                         Image(systemName: "waveform")
                             .foregroundColor(PioneerColors.cyberCyan)
-                        Text("REAL-TIME SPECTRUM ANALYZER")
+                        Text("DSP SIGNAL VISUALIZER")
                             .font(.system(size: 10, weight: .bold, design: .monospaced))
                             .foregroundColor(PioneerColors.textMuted)
                         Spacer()
-                        Text(dspEngine.isPlaying ? "LIVE DSP SIGNAL" : "STANDBY")
+                        Text(dspEngine.isPlaying ? "PLAYBACK ACTIVE" : "STANDBY")
                             .font(.system(size: 9, weight: .bold, design: .monospaced))
                             .foregroundColor(dspEngine.isPlaying ? PioneerColors.amberOrange : Color.white.opacity(0.3))
                     }
-                    
+
                     SpectrumVisualizerView(isPlaying: dspEngine.isPlaying)
                 }
                 .padding(16)
                 .pioneerCard(cornerRadius: 18, highlight: PioneerColors.cyberCyan.opacity(0.4))
                 .padding(.horizontal, 20)
-                
+
                 // Dual Rotary Dials: Super Bass (Todoroki) & Reverb Wet/Dry
                 HStack(spacing: 16) {
                     VStack {
@@ -146,7 +126,7 @@ public struct MainDSPView: View {
                     .padding(16)
                     .frame(maxWidth: .infinity)
                     .pioneerCard(cornerRadius: 18)
-                    
+
                     VStack {
                         PioneerDialKnob(
                             title: "REVERB MIX",
@@ -164,13 +144,13 @@ public struct MainDSPView: View {
                     .pioneerCard(cornerRadius: 18)
                 }
                 .padding(.horizontal, 20)
-                
+
                 // Sound Tune Preset Selectors
                 VStack(alignment: .leading, spacing: 12) {
-                    Text("PIONEER SOUND TUNE PRESETS")
+                    Text("DSP ENGINE PRESETS")
                         .font(.system(size: 10, weight: .bold, design: .monospaced))
                         .foregroundColor(PioneerColors.textMuted)
-                    
+
                     ScrollView(.horizontal, showsIndicators: false) {
                         HStack(spacing: 10) {
                             ForEach(DSPPreset.allCases) { preset in
@@ -200,8 +180,8 @@ public struct MainDSPView: View {
                 .padding(16)
                 .pioneerCard(cornerRadius: 18)
                 .padding(.horizontal, 20)
-                
-                // Connected Music Player Dock (Connected to Library & Zero-Glitch Engine)
+
+                // Local-file playback dock
                 VStack(spacing: 14) {
                     HStack(spacing: 12) {
                         ZStack {
@@ -211,20 +191,20 @@ public struct MainDSPView: View {
                             Image(systemName: "music.note")
                                 .foregroundColor(PioneerColors.amberOrange)
                         }
-                        
+
                         VStack(alignment: .leading, spacing: 3) {
                             Text(dspEngine.trackTitle)
                                 .font(.system(size: 13, weight: .bold))
                                 .foregroundColor(.white)
                                 .lineLimit(1)
-                            
+
                             Text(dspEngine.trackArtist)
                                 .font(.system(size: 11))
                                 .foregroundColor(PioneerColors.textMuted)
                         }
-                        
+
                         Spacer()
-                        
+
                         // Lyrics & Previous, Play/Pause, Next Controls
                         HStack(spacing: 12) {
                             Button(action: {
@@ -250,7 +230,7 @@ public struct MainDSPView: View {
                                     .font(.system(size: 15))
                                     .foregroundColor(Color.white.opacity(0.7))
                             }
-                            
+
                             Button(action: {
                                 dspEngine.togglePlayPause()
                             }) {
@@ -264,7 +244,7 @@ public struct MainDSPView: View {
                                 }
                                 .shadow(color: PioneerColors.amberOrange.opacity(0.4), radius: 6)
                             }
-                            
+
                             Button(action: {
                                 libraryManager.playNext()
                             }) {
@@ -274,9 +254,9 @@ public struct MainDSPView: View {
                             }
                         }
                     }
-                    
+
                     Divider().background(Color.white.opacity(0.1))
-                    
+
                     // Import Multi-Song Library Button
                     Button(action: {
                         showMultiPicker = true
@@ -284,7 +264,7 @@ public struct MainDSPView: View {
                         HStack(spacing: 8) {
                             Image(systemName: "folder.badge.plus")
                                 .foregroundColor(PioneerColors.cyberCyan)
-                            Text("IMPORT MULTIPLE SONGS TO LIBRARY")
+                            Text("IMPORT LOCAL AUDIO FILES")
                                 .font(.system(size: 11, weight: .bold, design: .monospaced))
                                 .foregroundColor(PioneerColors.cyberCyan)
                         }
@@ -297,7 +277,7 @@ public struct MainDSPView: View {
                 .padding(16)
                 .pioneerCard(cornerRadius: 18, highlight: PioneerColors.amberOrange.opacity(0.3))
                 .padding(.horizontal, 20)
-                
+
                 Spacer().frame(height: 30)
             }
         }
@@ -309,6 +289,11 @@ public struct MainDSPView: View {
                 showMultiPicker = false
             })
             .ignoresSafeArea()
+        }
+        .sheet(isPresented: $showLyricsSheet) {
+            LRCLyricsSheetView()
+                .presentationDetents([.large])
+                .presentationDragIndicator(.visible)
         }
     }
 }

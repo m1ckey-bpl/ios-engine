@@ -1,6 +1,8 @@
 import Foundation
 import AVFoundation
 
+/// A local file or a generated in-app test signal. Streaming catalog results use
+/// their provider's official player and are not represented as DSP library items.
 public struct SongItem: Identifiable, Equatable {
     public let id: UUID
     public let title: String
@@ -9,10 +11,16 @@ public struct SongItem: Identifiable, Equatable {
     public let fileURL: URL?
     public let fileSize: String
     public let isBuiltIn: Bool
-    public let isYouTube: Bool
-    public let thumbnailURL: String?
-    
-    public init(id: UUID = UUID(), title: String, artist: String, duration: TimeInterval, fileURL: URL? = nil, fileSize: String = "Demo", isBuiltIn: Bool = false, isYouTube: Bool = false, thumbnailURL: String? = nil) {
+
+    public init(
+        id: UUID = UUID(),
+        title: String,
+        artist: String,
+        duration: TimeInterval,
+        fileURL: URL? = nil,
+        fileSize: String = "Demo",
+        isBuiltIn: Bool = false
+    ) {
         self.id = id
         self.title = title
         self.artist = artist
@@ -20,13 +28,10 @@ public struct SongItem: Identifiable, Equatable {
         self.fileURL = fileURL
         self.fileSize = fileSize
         self.isBuiltIn = isBuiltIn
-        self.isYouTube = isYouTube
-        self.thumbnailURL = thumbnailURL
     }
-    
+
     public var formattedDuration: String {
-        let mins = Int(duration) / 60
-        let secs = Int(duration) % 60
-        return String(format: "%d:%02d", mins, secs)
+        guard duration.isFinite, duration > 0 else { return "--:--" }
+        return String(format: "%d:%02d", Int(duration) / 60, Int(duration) % 60)
     }
 }

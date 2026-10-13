@@ -8,9 +8,9 @@ public enum DSPPreset: String, CaseIterable, Identifiable {
     case dynamic = "DYNAMIC LIVE"
     case vocal = "VOCAL CLARITY"
     case club = "CLUB DANCE"
-    
+
     public var id: String { rawValue }
-    
+
     public var icon: String {
         switch self {
         case .flat: return "waveform"
@@ -21,12 +21,12 @@ public enum DSPPreset: String, CaseIterable, Identifiable {
         case .club: return "music.note.house.fill"
         }
     }
-    
+
     public var subtitle: String {
         switch self {
         case .flat: return "Studio reference response with zero coloration."
         case .concertHall: return "3D spatial acoustics with wide reverberation."
-        case .superBass: return "Pioneer Todoroki sub-bass booster (+8dB)."
+        case .superBass: return "Todoroki-style low-end lift for a fuller bass response."
         case .dynamic: return "V-shape curve with elevated presence."
         case .vocal: return "Enhanced mid frequencies for pristine vocals."
         case .club: return "Punchy sub-kick with bright high-end."
@@ -40,9 +40,9 @@ public enum ReverbRoomType: String, CaseIterable, Identifiable {
     case cathedral = "Cathedral"
     case mediumRoom = "Live Studio"
     case plate = "Plate Reverb"
-    
+
     public var id: String { rawValue }
-    
+
     public var avPreset: AVAudioUnitReverbPreset {
         switch self {
         case .concertHall: return .mediumHall
@@ -59,9 +59,9 @@ public enum ListeningPosition: String, CaseIterable, Identifiable {
     case frontLeft = "DRIVER (FL)"
     case frontRight = "PASSENGER (FR)"
     case frontCenter = "FRONT CENTER"
-    
+
     public var id: String { rawValue }
-    
+
     public var balancePan: Float {
         switch self {
         case .all: return 0.0
@@ -77,7 +77,7 @@ public struct EQBand: Identifiable, Equatable {
     public let frequency: Float
     public let label: String
     public var gain: Float // -12.0 to +12.0 dB
-    
+
     public init(id: Int, frequency: Float, label: String, gain: Float = 0.0) {
         self.id = id
         self.frequency = frequency

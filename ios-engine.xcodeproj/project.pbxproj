@@ -19,7 +19,6 @@
 		10010010 /* PioneerDialKnob.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20010010 /* PioneerDialKnob.swift */; };
 		10010011 /* CarCabinVisualizer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20010011 /* CarCabinVisualizer.swift */; };
 		10010012 /* DocumentPickerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20010012 /* DocumentPickerView.swift */; };
-		10010013 /* SpotifyWebView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20010013 /* SpotifyWebView.swift */; };
 		10010014 /* MainDSPView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20010014 /* MainDSPView.swift */; };
 		10010015 /* LibraryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20010015 /* LibraryView.swift */; };
 		10010016 /* EqualizerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20010016 /* EqualizerView.swift */; };
@@ -27,6 +26,8 @@
 		10010018 /* TimeAlignmentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20010018 /* TimeAlignmentView.swift */; };
 		10010019 /* SpotifyView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20010019 /* SpotifyView.swift */; };
 		10010020 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 20010020 /* Assets.xcassets */; };
+		10010021 /* DSPVisuals.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20010022 /* DSPVisuals.swift */; };
+		10010022 /* YouTubePlayerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20010023 /* YouTubePlayerView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -43,7 +44,6 @@
 		20010010 /* PioneerDialKnob.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PioneerDialKnob.swift; sourceTree = "<group>"; };
 		20010011 /* CarCabinVisualizer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CarCabinVisualizer.swift; sourceTree = "<group>"; };
 		20010012 /* DocumentPickerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DocumentPickerView.swift; sourceTree = "<group>"; };
-		20010013 /* SpotifyWebView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpotifyWebView.swift; sourceTree = "<group>"; };
 		20010014 /* MainDSPView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MainDSPView.swift; sourceTree = "<group>"; };
 		20010015 /* LibraryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LibraryView.swift; sourceTree = "<group>"; };
 		20010016 /* EqualizerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EqualizerView.swift; sourceTree = "<group>"; };
@@ -52,6 +52,8 @@
 		20010019 /* SpotifyView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpotifyView.swift; sourceTree = "<group>"; };
 		20010020 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		20010021 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		20010022 /* DSPVisuals.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DSPVisuals.swift; sourceTree = "<group>"; };
+		20010023 /* YouTubePlayerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = YouTubePlayerView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -131,7 +133,8 @@
 				20010010 /* PioneerDialKnob.swift */,
 				20010011 /* CarCabinVisualizer.swift */,
 				20010012 /* DocumentPickerView.swift */,
-				20010013 /* SpotifyWebView.swift */,
+				20010022 /* DSPVisuals.swift */,
+				20010023 /* YouTubePlayerView.swift */,
 			);
 			path = Components;
 			sourceTree = "<group>";
@@ -230,7 +233,8 @@
 				10010010 /* PioneerDialKnob.swift in Sources */,
 				10010011 /* CarCabinVisualizer.swift in Sources */,
 				10010012 /* DocumentPickerView.swift in Sources */,
-				10010013 /* SpotifyWebView.swift in Sources */,
+				10010021 /* DSPVisuals.swift in Sources */,
+				10010022 /* YouTubePlayerView.swift in Sources */,
 				10010014 /* MainDSPView.swift in Sources */,
 				10010015 /* LibraryView.swift in Sources */,
 				10010016 /* EqualizerView.swift in Sources */,
@@ -260,7 +264,7 @@
 					"DEBUG=1",
 					"$(inherited)",
 				);
-				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
 				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
 				ONLY_ACTIVE_ARCH = YES;
 				SDKROOT = iphoneos;
@@ -282,7 +286,7 @@
 				ENABLE_NS_ASSERTIONS = NO;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				GCC_OPTIMIZATION_LEVEL = s;
-				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
 				MTL_ENABLE_DEBUG_INFO = NO;
 				SDKROOT = iphoneos;
 				SWIFT_COMPILATION_MODE = wholemodule;
@@ -300,7 +304,7 @@
 				CODE_SIGN_IDENTITY = "";
 				CODE_SIGNING_REQUIRED = NO;
 				CODE_SIGNING_ALLOWED = NO;
-				CURRENT_PROJECT_VERSION = 1;
+				CURRENT_PROJECT_VERSION = 2;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = "ios-engine/Info.plist";
@@ -308,7 +312,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 2.2.0;
+				MARKETING_VERSION = 5.0.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.pioneerdsp.app;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = YES;
@@ -326,7 +330,7 @@
 				CODE_SIGN_IDENTITY = "";
 				CODE_SIGNING_REQUIRED = NO;
 				CODE_SIGNING_ALLOWED = NO;
-				CURRENT_PROJECT_VERSION = 1;
+				CURRENT_PROJECT_VERSION = 2;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = "ios-engine/Info.plist";
@@ -334,7 +338,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 2.2.0;
+				MARKETING_VERSION = 5.0.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.pioneerdsp.app;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = YES;
