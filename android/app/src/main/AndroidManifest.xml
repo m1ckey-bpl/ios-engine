@@ -23,12 +23,20 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
 
-            <!-- Spotify PKCE OAuth Deep Link Callback -->
+            <!-- Spotify PKCE OAuth Deep Link Callback (Strict: pioneerdsp://callback) -->
             <intent-filter>
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />
                 <data android:scheme="pioneerdsp" android:host="callback" />
+            </intent-filter>
+
+            <!-- Spotify PKCE OAuth Deep Link Fallback (All pioneerdsp: schemes) -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="pioneerdsp" />
             </intent-filter>
         </activity>
     </application>

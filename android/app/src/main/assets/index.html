@@ -289,13 +289,24 @@
               <p id="spotify-user-desc">Connect account via PKCE OAuth</p>
             </div>
           </div>
-          <button id="btn-spotify-auth" class="btn-spotify-action" onclick="handleSpotifyAuthClick()">
-            <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor">
-              <path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm5.498 17.307c-.215.352-.676.463-1.028.248-2.816-1.72-6.36-2.11-10.536-1.156-.4.092-.8-.16-.892-.56-.092-.4.16-.8.56-.892 4.568-1.044 8.502-.601 11.648 1.332.352.215.463.676.248 1.028zm1.467-3.26c-.27.44-.848.58-1.288.31-3.224-1.982-8.139-2.555-11.952-1.398-.497.15-1.03-.135-1.18-.632-.15-.497.135-1.03.632-1.18 4.358-1.323 9.775-.683 13.478 1.612.44.27.58.848.31 1.288zm.126-3.41c-3.866-2.296-10.246-2.508-13.934-1.388-.593.18-1.226-.153-1.406-.746-.18-.593.153-1.226.746-1.406 4.237-1.286 11.281-1.042 15.733 1.602.533.316.708 1.008.392 1.541-.316.533-1.008.708-1.531.397z"/>
-            </svg>
-            <span id="btn-spotify-text">CONNECT</span>
-          </button>
+          <div style="display: flex; gap: 8px; align-items: center;">
+            <button class="btn-ctrl-round" onclick="openSpotifyConfigModal()" title="Spotify Configuration" style="width: 38px; height: 38px; border-radius: 8px; border: 1px solid var(--border-subtle); background: rgba(255,255,255,0.05); color: #ccc;">
+              <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none">
+                <circle cx="12" cy="12" r="3"></circle>
+                <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+              </svg>
+            </button>
+            <button id="btn-spotify-auth" class="btn-spotify-action" onclick="handleSpotifyAuthClick()">
+              <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor">
+                <path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm5.498 17.307c-.215.352-.676.463-1.028.248-2.816-1.72-6.36-2.11-10.536-1.156-.4.092-.8-.16-.892-.56-.092-.4.16-.8.56-.892 4.568-1.044 8.502-.601 11.648 1.332.352.215.463.676.248 1.028zm1.467-3.26c-.27.44-.848.58-1.288.31-3.224-1.982-8.139-2.555-11.952-1.398-.497.15-1.03-.135-1.18-.632-.15-.497.135-1.03.632-1.18 4.358-1.323 9.775-.683 13.478 1.612.44.27.58.848.31 1.288zm.126-3.41c-3.866-2.296-10.246-2.508-13.934-1.388-.593.18-1.226-.153-1.406-.746-.18-.593.153-1.226.746-1.406 4.237-1.286 11.281-1.042 15.733 1.602.533.316.708 1.008.392 1.541-.316.533-1.008.708-1.531.397z"/>
+              </svg>
+              <span id="btn-spotify-text">CONNECT</span>
+            </button>
+          </div>
         </div>
+
+        <!-- Connection Status Banner -->
+        <div id="spotify-status-banner" style="display: none; margin-top: 10px; padding: 10px 14px; border-radius: 8px; font-size: 11px; font-family: var(--font-mono); line-height: 1.4;"></div>
 
         <!-- Official Policy Disclosure Banner -->
         <div class="spotify-policy-notice">
@@ -511,7 +522,12 @@
 
       const target = document.getElementById('tab-' + tabId);
       if (target) target.classList.add('active');
-      if (el) el.classList.add('active');
+      if (el) {
+        el.classList.add('active');
+      } else {
+        const btn = document.querySelector(`.nav-tab-btn[onclick*="'${tabId}'"]`);
+        if (btn) btn.classList.add('active');
+      }
 
       if (tabId === 'tuner') {
         initCanvasDimensions();
@@ -911,14 +927,46 @@
       }
     }
 
+    function showAuthStatusBanner(message, type) {
+      const banner = document.getElementById('spotify-status-banner');
+      if (!banner) return;
+      banner.style.display = 'block';
+      banner.innerText = message;
+      if (type === 'success') {
+        banner.style.background = 'rgba(29, 185, 84, 0.15)';
+        banner.style.border = '1px solid var(--spotify-green)';
+        banner.style.color = '#1DB954';
+      } else if (type === 'error') {
+        banner.style.background = 'rgba(255, 68, 68, 0.15)';
+        banner.style.border = '1px solid #ff4444';
+        banner.style.color = '#ff6b6b';
+      } else {
+        banner.style.background = 'rgba(255, 140, 0, 0.15)';
+        banner.style.border = '1px solid var(--pioneer-orange)';
+        banner.style.color = 'var(--pioneer-orange)';
+      }
+    }
+
     async function handleSpotifyAuthClick() {
       if (window.spotifyService.isAuthenticated()) {
-        window.spotifyService.logout();
-        updateSpotifyUI();
+        if (confirm('Disconnect your Spotify account?')) {
+          window.spotifyService.logout();
+          updateSpotifyUI();
+          showAuthStatusBanner('Spotify disconnected.', 'info');
+        }
       } else {
         try {
           const authUrl = await window.spotifyService.generateAuthUrl();
-          window.location.href = authUrl;
+          showAuthStatusBanner('Launching Spotify authorization in browser. Please tap Agree to return...', 'info');
+          
+          // Use native bridge to open system browser, keeping WebView session & PKCE verifier intact
+          if (window.PioneerBridge && typeof window.PioneerBridge.openExternalBrowser === 'function') {
+            window.PioneerBridge.openExternalBrowser(authUrl);
+          } else {
+            // Web fallback
+            const pop = window.open(authUrl, '_blank');
+            if (!pop) window.location.href = authUrl;
+          }
         } catch(e) {
           if (e.message && e.message.includes('CONFIG_REQUIRED')) {
             openSpotifyConfigModal();
@@ -931,15 +979,30 @@
 
     // Spotify OAuth Callback Listener (handles deep links / window redirects)
     window.spotifyAuthCallback = async function(url) {
+      console.log('Pioneer DSP: Received Spotify OAuth callback URI:', url);
+      switchTab('spotify');
+      showAuthStatusBanner('Exchanging PKCE authorization code with Spotify...', 'info');
+
       try {
-        await window.spotifyService.handleAuthCallback(url);
-        updateSpotifyUI();
+        const res = await window.spotifyService.handleAuthCallback(url);
+        await updateSpotifyUI();
+        const userName = (res && res.profile && res.profile.displayName) ? res.profile.displayName : 'Spotify User';
+        showAuthStatusBanner(`Connected as ${userName}! Personal playlists synchronized.`, 'success');
       } catch(err) {
+        console.error('Spotify Connection Error:', err);
+        showAuthStatusBanner('Connection Failed: ' + err.message, 'error');
         alert('Spotify Connection Error: ' + err.message);
       }
     };
 
-    // Check URL parameters for OAuth code upon return
+    // Check for pending callback queued during native launch
+    if (window.__pendingSpotifyCallbackUrl) {
+      const qUrl = window.__pendingSpotifyCallbackUrl;
+      window.__pendingSpotifyCallbackUrl = null;
+      window.spotifyAuthCallback(qUrl);
+    }
+
+    // Check URL parameters for OAuth code upon return (standard web fallback)
     if (window.location.search && (window.location.search.includes('code=') || window.location.search.includes('error='))) {
       window.spotifyAuthCallback(window.location.href);
     }
@@ -1109,6 +1172,12 @@
       renderSavedPresetsList();
       updatePlayerDock();
       updateSpotifyUI();
+
+      if (window.__pendingSpotifyCallbackUrl) {
+        const qUrl = window.__pendingSpotifyCallbackUrl;
+        window.__pendingSpotifyCallbackUrl = null;
+        window.spotifyAuthCallback(qUrl);
+      }
 
       requestAnimationFrame(drawSpectrumLoop);
     });

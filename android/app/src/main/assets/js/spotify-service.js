@@ -39,7 +39,7 @@ class SpotifyPKCEService {
   }
 
   saveConfig(clientId, redirectUri) {
-    this.clientId = clientId.trim();
+    this.clientId = (clientId || '').trim();
     if (redirectUri && redirectUri.trim()) {
       this.redirectUri = redirectUri.trim();
     }
@@ -156,27 +156,82 @@ class SpotifyPKCEService {
   // Step 2: Handle OAuth Callback and Exchange Code for Access Token
   async handleAuthCallback(callbackUrl) {
     try {
-      const url = new URL(callbackUrl);
-      const code = url.searchParams.get('code');
-      const error = url.searchParams.get('error');
-      const state = url.searchParams.get('state');
-      const savedState = localStorage.getItem('spotify_pkce_state');
+      if (!callbackUrl) {
+        throw new Error('Callback URL is empty.');
+      }
+
+      let code = null;
+      let error = null;
+      let state = null;
+
+      // Method 1: Standard URL parser
+      try {
+        const urlObj = new URL(callbackUrl);
+        code = urlObj.searchParams.get('code');
+        error = urlObj.searchParams.get('error');
+        state = urlObj.searchParams.get('state');
+      } catch(e) {
+        console.warn('Standard URL parser on callback URL had notice, falling back:', e);
+      }
+
+      // Method 2: Query string parser for custom scheme URIs
+      if (!code && !error) {
+        let queryString = '';
+        const qIndex = callbackUrl.indexOf('?');
+        if (qIndex !== -1) {
+          queryString = callbackUrl.substring(qIndex + 1);
+          const hashIndex = queryString.indexOf('#');
+          if (hashIndex !== -1) {
+            queryString = queryString.substring(0, hashIndex);
+          }
+        } else {
+          const hashIndex = callbackUrl.indexOf('#');
+          if (hashIndex !== -1) {
+            queryString = callbackUrl.substring(hashIndex + 1);
+          }
+        }
+
+        if (queryString) {
+          const params = new URLSearchParams(queryString);
+          code = code || params.get('code');
+          error = error || params.get('error');
+          state = state || params.get('state');
+        }
+      }
+
+      // Method 3: Regex fallbacks
+      if (!code) {
+        const matchCode = callbackUrl.match(/[?&#]code=([^&#]+)/);
+        if (matchCode) code = decodeURIComponent(matchCode[1]);
+      }
+      if (!error) {
+        const matchErr = callbackUrl.match(/[?&#]error=([^&#]+)/);
+        if (matchErr) error = decodeURIComponent(matchErr[1]);
+      }
+      if (!state) {
+        const matchState = callbackUrl.match(/[?&#]state=([^&#]+)/);
+        if (matchState) state = decodeURIComponent(matchState[1]);
+      }
 
       if (error) {
-        throw new Error(`Spotify Authorization Denied: ${error}`);
+        if (error === 'access_denied') {
+          throw new Error('Authorization was cancelled or denied by user.');
+        }
+        throw new Error(`Spotify Authorization Error: ${error}`);
       }
 
       if (!code) {
         throw new Error('No authorization code found in callback URL.');
       }
 
+      const savedState = localStorage.getItem('spotify_pkce_state');
       if (savedState && state && state !== savedState) {
-        console.warn('OAuth state mismatch warning; proceeding with PKCE verification.');
+        console.warn('OAuth state mismatch detected; proceeding with PKCE verification.');
       }
 
       const codeVerifier = localStorage.getItem('spotify_pkce_verifier');
       if (!codeVerifier) {
-        throw new Error('PKCE Code Verifier not found in session. Please retry connecting.');
+        throw new Error('PKCE Code Verifier not found in storage. Please tap Connect again.');
       }
 
       // Exchange code for token via official Spotify endpoint
@@ -196,7 +251,8 @@ class SpotifyPKCEService {
 
       const data = await response.json();
       if (!response.ok || data.error) {
-        throw new Error(data.error_description || data.error || 'Token exchange failed.');
+        const errorDetail = data.error_description || data.error || 'Token exchange failed';
+        throw new Error(`Token Exchange Failed: ${errorDetail}`);
       }
 
       this.accessToken = data.access_token;
@@ -309,14 +365,18 @@ class SpotifyPKCEService {
   // Official Web API Endpoints
   async fetchUserProfile() {
     const profile = await this.apiRequest('/me');
+    let followersCount = 0;
+    if (profile && profile.followers && typeof profile.followers.total === 'number') {
+      followersCount = profile.followers.total;
+    }
     this.userProfile = {
-      id: profile.id,
-      displayName: profile.display_name || profile.id,
-      email: profile.email || '',
-      images: profile.images || [],
-      product: profile.product || 'free', // 'premium' or 'free'
-      country: profile.country || '',
-      followers: profile.followers ? profile.followers.total : 0
+      id: profile ? profile.id : 'unknown',
+      displayName: (profile && (profile.display_name || profile.id)) ? (profile.display_name || profile.id) : 'Spotify User',
+      email: profile ? (profile.email || '') : '',
+      images: profile ? (profile.images || []) : [],
+      product: profile ? (profile.product || 'free') : 'free',
+      country: profile ? (profile.country || '') : '',
+      followers: followersCount
     };
     this.saveSession();
     return this.userProfile;

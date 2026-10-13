@@ -50,15 +50,26 @@ jobs:
         uses: softprops/action-gh-release@v2
         if: github.ref == 'refs/heads/main'
         with:
-          tag_name: v3.0.0
-          name: "Pioneer DSP v3.0.0 (Master Edition — Audio DSP & Spotify PKCE)"
+          tag_name: v3.1.0
+          name: "Pioneer DSP v3.1.0 (Spotify PKCE OAuth Fix & Master Audio DSP)"
           body: |
-            ## 🎵 Pioneer DSP v3.0.0 — Master Audio & Music DSP Application
+            ## 🎵 Pioneer DSP v3.1.0 — Fixed Spotify OAuth Callback & Master Audio DSP
 
             ### 📦 Direct Downloads:
             * 🤖 **Android**: `Pioneer_DSP.apk` (Direct install on Android phone, 100% free)
             * 🪟 **Windows**: `Pioneer_DSP_Windows.zip` (1-Click standalone desktop application)
             * 📱 **iOS**: `Pioneer_DSP_unsigned.ipa` (Sideloadable IPA)
+
+            ### 🚀 Updates in v3.1.0:
+            * **Fixed Spotify OAuth Callback Flow**:
+              - System browser / external custom tab launch via native `PioneerBridge` keeps WebView session & PKCE verifier completely intact.
+              - Callback URL queuing on cold start & seamless dispatch on `onNewIntent` for `pioneerdsp://callback`.
+              - Resilient multi-strategy URL parsing for custom schemes and query strings.
+              - Live visual connection feedback status banner and Spotify configuration settings modal.
+            * **Preserved Full Hi-Fi Audio DSP Engine**:
+              - 10-Band Graphic Equalizer, Todoroki Super Bass (63Hz), Deep Sub-Bass (31Hz).
+              - Reverb Ambience Simulation (Concert Hall, Live Room, Studio), Preamp Gain, Peak Limiter.
+              - Car Cabin Time Alignment, Stereo Balance, and Persistent Offline Music Library.
 
             ### ✨ Major Capabilities in v3.0.0:
             1. **Legitimate Spotify PKCE OAuth & Web API Integration**:
@@ -122,7 +133,7 @@ jobs:
         uses: softprops/action-gh-release@v2
         if: github.ref == 'refs/heads/main'
         with:
-          tag_name: v3.0.0
+          tag_name: v3.1.0
           files: Pioneer_DSP_unsigned.ipa
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

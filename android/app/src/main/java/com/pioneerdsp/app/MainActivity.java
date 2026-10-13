@@ -6,6 +6,7 @@ import android.net.Uri;
 import android.os.Bundle;
 import android.view.View;
 import android.webkit.CookieManager;
+import android.webkit.JavascriptInterface;
 import android.webkit.ValueCallback;
 import android.webkit.WebChromeClient;
 import android.webkit.WebResourceRequest;
@@ -18,6 +19,23 @@ public class MainActivity extends AppCompatActivity {
     private WebView webView;
     private ValueCallback<Uri[]> filePathCallback;
     private static final int FILE_CHOOSER_REQ = 1001;
+    private String pendingAuthUrl = null;
+    private boolean isPageLoaded = false;
+
+    public class PioneerBridge {
+        @JavascriptInterface
+        public void openExternalBrowser(String url) {
+            try {
+                if (url != null && !url.isEmpty()) {
+                    Intent intent = new Intent(Intent.ACTION_VIEW, Uri.parse(url));
+                    intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                    startActivity(intent);
+                }
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+        }
+    }
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -26,7 +44,7 @@ public class MainActivity extends AppCompatActivity {
         webView = new WebView(this);
         setContentView(webView);
 
-        // Hardware Layer for maximum GPU performance & zero lag
+        // Hardware Acceleration Layer for fluid 60fps rendering & DSP visualizer
         webView.setLayerType(View.LAYER_TYPE_HARDWARE, null);
 
         WebSettings settings = webView.getSettings();
@@ -42,13 +60,16 @@ public class MainActivity extends AppCompatActivity {
         settings.setJavaScriptCanOpenWindowsAutomatically(true);
         settings.setSupportMultipleWindows(false);
 
-        // Modern Chrome Mobile User-Agent for Spotify Web & API Compatibility
+        // Modern Chrome User-Agent for Spotify Web & API Compatibility
         settings.setUserAgentString("Mozilla/5.0 (Linux; Android 14; Pixel 8 Pro) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Mobile Safari/537.36");
 
-        // Enable Cookie Persistence including Third-Party Cookies for Spotify Authentication
+        // Enable Cookie Persistence
         CookieManager cookieManager = CookieManager.getInstance();
         cookieManager.setAcceptCookie(true);
         cookieManager.setAcceptThirdPartyCookies(webView, true);
+
+        // Register Native JavaScript Bridge
+        webView.addJavascriptInterface(new PioneerBridge(), "PioneerBridge");
 
         webView.setWebViewClient(new WebViewClient() {
             @Override
@@ -62,21 +83,36 @@ public class MainActivity extends AppCompatActivity {
             }
 
             private boolean handleUrlRouting(WebView view, String url) {
-                if (url.startsWith("pioneerdsp://callback")) {
-                    final String safeUrl = url.replace("'", "\\'");
-                    view.post(() -> view.evaluateJavascript("if(window.spotifyAuthCallback) window.spotifyAuthCallback('" + safeUrl + "');", null));
+                if (url == null) return false;
+
+                // Handle Spotify OAuth custom scheme callback
+                if (url.startsWith("pioneerdsp://") || url.startsWith("pioneerdsp:")) {
+                    dispatchAuthCallback(url);
                     return true;
                 }
 
-                if (url.startsWith("http://") || url.startsWith("https://") || url.startsWith("file:///")) {
+                // Internal asset loading stays inside WebView
+                if (url.startsWith("file:///android_asset/")) {
                     return false;
                 }
 
+                // External HTTP/HTTPS links (including Spotify OAuth flow) open in system browser
                 try {
                     Intent intent = new Intent(Intent.ACTION_VIEW, Uri.parse(url));
+                    intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
                     startActivity(intent);
                 } catch (Exception ignored) {}
                 return true;
+            }
+
+            @Override
+            public void onPageFinished(WebView view, String url) {
+                super.onPageFinished(view, url);
+                isPageLoaded = true;
+                if (pendingAuthUrl != null) {
+                    dispatchAuthCallback(pendingAuthUrl);
+                    pendingAuthUrl = null;
+                }
             }
         });
 
@@ -98,9 +134,10 @@ public class MainActivity extends AppCompatActivity {
             }
         });
 
-        webView.loadUrl("file:///android_asset/index.html");
-
+        // Check if launched directly via deep link intent (cold start)
         handleIntent(getIntent());
+
+        webView.loadUrl("file:///android_asset/index.html");
     }
 
     @Override
@@ -113,11 +150,29 @@ public class MainActivity extends AppCompatActivity {
     private void handleIntent(Intent intent) {
         if (intent != null && intent.getData() != null) {
             Uri data = intent.getData();
-            if ("pioneerdsp".equals(data.getScheme())) {
-                final String fullUrl = data.toString().replace("'", "\\'");
-                webView.post(() -> webView.evaluateJavascript("if(window.spotifyAuthCallback) window.spotifyAuthCallback('" + fullUrl + "');", null));
+            if ("pioneerdsp".equalsIgnoreCase(data.getScheme())) {
+                String fullUrl = data.toString();
+                if (isPageLoaded) {
+                    dispatchAuthCallback(fullUrl);
+                } else {
+                    pendingAuthUrl = fullUrl;
+                }
             }
         }
+    }
+
+    private void dispatchAuthCallback(String url) {
+        if (url == null || webView == null) return;
+        final String safeUrl = url.replace("\\", "\\\\").replace("'", "\\'");
+        final String js = "(function() {" +
+            "  var u = '" + safeUrl + "';" +
+            "  if (window.spotifyAuthCallback) {" +
+            "    window.spotifyAuthCallback(u);" +
+            "  } else {" +
+            "    window.__pendingSpotifyCallbackUrl = u;" +
+            "  }" +
+            "})();";
+        webView.post(() -> webView.evaluateJavascript(js, null));
     }
 
     @Override
