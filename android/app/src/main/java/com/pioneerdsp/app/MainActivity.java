@@ -26,7 +26,7 @@ public class MainActivity extends AppCompatActivity {
         webView = new WebView(this);
         setContentView(webView);
 
-        // Hardware Layer for maximum GPU performance
+        // Hardware Layer for maximum GPU performance & zero lag
         webView.setLayerType(View.LAYER_TYPE_HARDWARE, null);
 
         WebSettings settings = webView.getSettings();
@@ -42,7 +42,7 @@ public class MainActivity extends AppCompatActivity {
         settings.setJavaScriptCanOpenWindowsAutomatically(true);
         settings.setSupportMultipleWindows(false);
 
-        // Custom Modern Chrome Mobile User-Agent for Spotify Web & Login Compatibility
+        // Modern Chrome Mobile User-Agent for Spotify Web & API Compatibility
         settings.setUserAgentString("Mozilla/5.0 (Linux; Android 14; Pixel 8 Pro) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Mobile Safari/537.36");
 
         // Enable Cookie Persistence including Third-Party Cookies for Spotify Authentication
@@ -53,25 +53,27 @@ public class MainActivity extends AppCompatActivity {
         webView.setWebViewClient(new WebViewClient() {
             @Override
             public boolean shouldOverrideUrlLoading(WebView view, String url) {
-                if (url.startsWith("http://") || url.startsWith("https://") || url.startsWith("file:///")) {
-                    return false;
-                }
-                try {
-                    Intent intent = new Intent(Intent.ACTION_VIEW, Uri.parse(url));
-                    startActivity(intent);
-                } catch (Exception ignored) {}
-                return true;
+                return handleUrlRouting(view, url);
             }
 
             @Override
             public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest request) {
-                Uri uri = request.getUrl();
-                String url = uri.toString();
+                return handleUrlRouting(view, request.getUrl().toString());
+            }
+
+            private boolean handleUrlRouting(WebView view, String url) {
+                if (url.startsWith("pioneerdsp://callback")) {
+                    final String safeUrl = url.replace("'", "\\'");
+                    view.post(() -> view.evaluateJavascript("if(window.spotifyAuthCallback) window.spotifyAuthCallback('" + safeUrl + "');", null));
+                    return true;
+                }
+
                 if (url.startsWith("http://") || url.startsWith("https://") || url.startsWith("file:///")) {
                     return false;
                 }
+
                 try {
-                    Intent intent = new Intent(Intent.ACTION_VIEW, uri);
+                    Intent intent = new Intent(Intent.ACTION_VIEW, Uri.parse(url));
                     startActivity(intent);
                 } catch (Exception ignored) {}
                 return true;
@@ -97,6 +99,25 @@ public class MainActivity extends AppCompatActivity {
         });
 
         webView.loadUrl("file:///android_asset/index.html");
+
+        handleIntent(getIntent());
+    }
+
+    @Override
+    protected void onNewIntent(Intent intent) {
+        super.onNewIntent(intent);
+        setIntent(intent);
+        handleIntent(intent);
+    }
+
+    private void handleIntent(Intent intent) {
+        if (intent != null && intent.getData() != null) {
+            Uri data = intent.getData();
+            if ("pioneerdsp".equals(data.getScheme())) {
+                final String fullUrl = data.toString().replace("'", "\\'");
+                webView.post(() -> webView.evaluateJavascript("if(window.spotifyAuthCallback) window.spotifyAuthCallback('" + fullUrl + "');", null));
+            }
+        }
     }
 
     @Override

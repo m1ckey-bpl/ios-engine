@@ -50,25 +50,37 @@ jobs:
         uses: softprops/action-gh-release@v2
         if: github.ref == 'refs/heads/main'
         with:
-          tag_name: v2.4.0
-          name: "Pioneer DSP v2.4.0 (Aesthetic UI & Android APK)"
+          tag_name: v3.0.0
+          name: "Pioneer DSP v3.0.0 (Master Edition — Audio DSP & Spotify PKCE)"
           body: |
-            ## 🎵 Pioneer DSP v2.4.0 — Aesthetic UI & Performance Edition
-
-            Now available with major upgrades based on user feedback!
+            ## 🎵 Pioneer DSP v3.0.0 — Master Audio & Music DSP Application
 
             ### 📦 Direct Downloads:
             * 🤖 **Android**: `Pioneer_DSP.apk` (Direct install on Android phone, 100% free)
             * 🪟 **Windows**: `Pioneer_DSP_Windows.zip` (1-Click standalone desktop application)
             * 📱 **iOS**: `Pioneer_DSP_unsigned.ipa` (Sideloadable IPA)
 
-            ### ✨ Key Improvements in v2.4.0:
-            1. **Spotify Account Integration**: Direct login into Spotify account and in-app streaming with persistent cookie sessions.
-            2. **Pure Vector Iconography**: Replaced all emojis with sleek hardware-grade SVG vectors.
-            3. **Zero-Lag & Zero-Crash Optimization**: Removed canvas layout thrashing and continuous memory churn; added Android hardware layers and intent protection.
-            4. **Persistent Music Library (IndexedDB)**: Songs saved to device storage permanently survive app restarts.
-            5. **Real-Time Song Timer & Scrubber**: Live `00:00` timer and interactive seek slider.
-            6. **Minimalist Hi-Fi Aesthetic**: Dark matte obsidian cockpit design with precision telemetry.
+            ### ✨ Major Capabilities in v3.0.0:
+            1. **Legitimate Spotify PKCE OAuth & Web API Integration**:
+               - Authorization Code Flow with PKCE (No client secret required).
+               - User profile, subscription status, personal playlists browsing.
+               - Remote playback controller (play, pause, next, prev, volume, track metadata).
+               - Transparent policy disclosure regarding Spotify DRM and audio stream protections.
+            2. **Professional Audio DSP Engine**:
+               - 10-Band Graphic Equalizer (31Hz to 16kHz, -12dB to +12dB).
+               - Todoroki Super Bass (63Hz) & Deep Sub-Bass (31Hz).
+               - Preamp gain (-12dB to +12dB).
+               - Midrange & Treble tone adjustments.
+               - Peak Limiter (`DynamicsCompressor`) for guaranteed clipping protection.
+               - 3 Convolution Ambience Modes (Concert Hall, Live Room, Studio) with wet/dry blend.
+               - Stereo balance & Car Cabin time alignment (Driver, Passenger, Center, All Seats).
+               - 10 Functional Factory Presets + User Custom Preset saving & loading.
+            3. **Persistent Local Music Library**:
+               - IndexedDB binary Blob storage retains imported songs permanently across device reboots.
+               - High-precision 100ms playback timer & interactive scrubber.
+            4. **Minimalist Luxury Hi-Fi Dark Cockpit UI**:
+               - Pure SVG vector iconography.
+               - Zero-lag 60fps spectrum visualizer with hardware acceleration.
           files: |
             Pioneer_DSP.apk
             windows/Pioneer_DSP_Windows.zip
@@ -110,7 +122,7 @@ jobs:
         uses: softprops/action-gh-release@v2
         if: github.ref == 'refs/heads/main'
         with:
-          tag_name: v2.4.0
+          tag_name: v3.0.0
           files: Pioneer_DSP_unsigned.ipa
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -1,4 +1,4 @@
-// Pioneer DSP Audio Core Engine with IndexedDB Storage & Precision Timer
+// Pioneer DSP - Hi-Fi Audio Processing Engine & Persistent Storage
 class PioneerAudioDB {
   constructor() {
     this.dbName = 'PioneerDSP_DB';
@@ -70,30 +70,44 @@ class PioneerDSPEngine {
     this.pauseOffset = 0;
     this.startTime = 0;
     
-    // DSP State
-    this.isConcertHall = false;
-    this.superBassGain = 0; // 0 to 12 dB
-    this.reverbMix = 0; // 0 to 100%
-    this.currentPosition = 'all'; // all, fl, fr, fc
+    // DSP State & Levels
+    this.preampGain = 0; // -12 to +12 dB
+    this.superBassGain = 0; // 0 to 12 dB (Todoroki 63Hz)
+    this.deepBassGain = 0; // 0 to 8 dB (Sub-Bass 31Hz)
+    this.midGain = 0; // -10 to +10 dB (1.5kHz)
+    this.trebleGain = 0; // -10 to +10 dB (10kHz)
     
-    // 10-Band EQ: 31, 63, 125, 250, 500, 1k, 2k, 4k, 8k, 16k
+    this.ambienceMode = 'hall'; // 'hall', 'room', 'studio'
+    this.reverbMix = 0; // 0 to 100%
+    this.balance = 0; // -1.0 to +1.0
+    this.cabinPosition = 'all'; // 'all', 'fl', 'fr', 'fc'
+
+    // 10-Band Graphic EQ Frequencies
     this.eqFreqs = [31, 63, 125, 250, 500, 1000, 2000, 4000, 8000, 16000];
     this.eqFilters = [];
     this.eqGains = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
-    
-    // Audio Nodes
+
+    // Audio Graph Nodes
+    this.preampNode = null;
     this.superBassFilter = null;
+    this.deepBassFilter = null;
+    this.midFilter = null;
+    this.trebleFilter = null;
     this.convolverNode = null;
-    this.wetGain = null;
     this.dryGain = null;
+    this.wetGain = null;
     this.pannerNode = null;
+    this.limiterNode = null; // Clipping Protection
     this.analyser = null;
     this.spectrumBuffer = null;
-    
-    // Playlists & Songs
+
+    // Impulse Responses Cache
+    this.impulseCache = {};
+
+    // Playlist & Songs
     this.defaultSongs = [
       { id: 'demo_1', title: 'Concert Hall Acoustic Master', artist: 'Pioneer Philharmonic', duration: 180, isDemo: true, demoType: 'hall' },
-      { id: 'demo_2', title: 'Todoroki 808 Sub-Bass Groove', artist: 'Pioneer Sound Engineering', duration: 165, isDemo: true, demoType: 'bass' },
+      { id: 'demo_2', title: 'Todoroki 808 Sub-Bass Groove', artist: 'Pioneer Bass Lab', duration: 165, isDemo: true, demoType: 'bass' },
       { id: 'demo_3', title: 'Tokyo Highway Synth Drive', artist: 'Cyber Sound Collective', duration: 210, isDemo: true, demoType: 'synth' },
       { id: 'demo_4', title: 'Midnight Lo-Fi Piano Lounge', artist: 'Acoustic Stage Project', duration: 195, isDemo: true, demoType: 'lofi' }
     ];
@@ -102,7 +116,7 @@ class PioneerDSPEngine {
     this.currentBuffer = null;
     this.isShuffle = false;
     this.isRepeat = true;
-    
+
     this.db = new PioneerAudioDB();
     this.initAudioContext();
   }
@@ -110,8 +124,12 @@ class PioneerDSPEngine {
   initAudioContext() {
     const AudioContextClass = window.AudioContext || window.webkitAudioContext;
     this.audioCtx = new AudioContextClass();
-    
-    // 1. Setup 10-Band EQ Filters
+
+    // 1. Preamp Gain
+    this.preampNode = this.audioCtx.createGain();
+    this.preampNode.gain.value = 1.0;
+
+    // 2. 10-Band EQ Filters
     this.eqFilters = this.eqFreqs.map(freq => {
       const filter = this.audioCtx.createBiquadFilter();
       filter.type = 'peaking';
@@ -121,15 +139,34 @@ class PioneerDSPEngine {
       return filter;
     });
 
-    // 2. Setup Super Bass Filter (Low Shelf at 63Hz)
+    // 3. Super Bass (Todoroki Low Shelf at 63Hz)
     this.superBassFilter = this.audioCtx.createBiquadFilter();
     this.superBassFilter.type = 'lowshelf';
     this.superBassFilter.frequency.value = 63;
     this.superBassFilter.gain.value = 0;
 
-    // 3. Setup Concert Hall Convolver Reverb
+    // 4. Deep Bass (Sub-Bass Low Shelf at 31Hz)
+    this.deepBassFilter = this.audioCtx.createBiquadFilter();
+    this.deepBassFilter.type = 'lowshelf';
+    this.deepBassFilter.frequency.value = 31;
+    this.deepBassFilter.gain.value = 0;
+
+    // 5. Tone Controls: Midrange (1.5kHz) and Treble (10kHz High Shelf)
+    this.midFilter = this.audioCtx.createBiquadFilter();
+    this.midFilter.type = 'peaking';
+    this.midFilter.frequency.value = 1500;
+    this.midFilter.Q.value = 1.0;
+    this.midFilter.gain.value = 0;
+
+    this.trebleFilter = this.audioCtx.createBiquadFilter();
+    this.trebleFilter.type = 'highshelf';
+    this.trebleFilter.frequency.value = 10000;
+    this.trebleFilter.gain.value = 0;
+
+    // 6. Ambience / Reverb Convolver Node
     this.convolverNode = this.audioCtx.createConvolver();
-    this.convolverNode.buffer = this.buildHallImpulseResponse(2.5, 2.0);
+    this.buildImpulseResponses();
+    this.convolverNode.buffer = this.impulseCache['hall'];
 
     this.dryGain = this.audioCtx.createGain();
     this.dryGain.gain.value = 1.0;
@@ -137,7 +174,7 @@ class PioneerDSPEngine {
     this.wetGain = this.audioCtx.createGain();
     this.wetGain.gain.value = 0.0;
 
-    // 4. Stereo Panner
+    // 7. Stereo Balance / Panner
     if (this.audioCtx.createStereoPanner) {
       this.pannerNode = this.audioCtx.createStereoPanner();
       this.pannerNode.pan.value = 0;
@@ -145,63 +182,63 @@ class PioneerDSPEngine {
       this.pannerNode = this.audioCtx.createGain();
     }
 
-    // 5. Analyser
+    // 8. Peak Limiter / Clipping Protection (DynamicsCompressor)
+    // Prevents digital clipping distortion under heavy bass/gain boost
+    this.limiterNode = this.audioCtx.createDynamicsCompressor();
+    this.limiterNode.threshold.value = -3.0; // dB
+    this.limiterNode.knee.value = 30; // dB
+    this.limiterNode.ratio.value = 12; // 12:1 compression for hard limiting
+    this.limiterNode.attack.value = 0.003; // 3ms fast peak catch
+    this.limiterNode.release.value = 0.25; // 250ms smooth release
+
+    // 9. Analyser Node for Spectrum Visualizer
     this.analyser = this.audioCtx.createAnalyser();
     this.analyser.fftSize = 64;
     this.analyser.smoothingTimeConstant = 0.82;
     this.spectrumBuffer = new Uint8Array(this.analyser.frequencyBinCount);
 
-    // Audio Graph Routing:
-    // Source -> EQ[0] -> ... -> EQ[9] -> SuperBass -> Dry/Wet -> Panner -> Analyser -> Destination
+    // Audio Graph Pipeline:
+    // Source -> Preamp -> EQ[0..9] -> DeepBass -> SuperBass -> Mid -> Treble -> (Dry/Wet Split) -> Panner -> Limiter -> Analyser -> Output
+    this.preampNode.connect(this.eqFilters[0]);
     for (let i = 0; i < this.eqFilters.length - 1; i++) {
       this.eqFilters[i].connect(this.eqFilters[i + 1]);
     }
-    this.eqFilters[this.eqFilters.length - 1].connect(this.superBassFilter);
+    this.eqFilters[this.eqFilters.length - 1].connect(this.deepBassFilter);
+    this.deepBassFilter.connect(this.superBassFilter);
+    this.superBassFilter.connect(this.midFilter);
+    this.midFilter.connect(this.trebleFilter);
 
-    this.superBassFilter.connect(this.dryGain);
+    // Dry / Wet Split
+    this.trebleFilter.connect(this.dryGain);
     this.dryGain.connect(this.pannerNode);
 
-    this.superBassFilter.connect(this.convolverNode);
+    this.trebleFilter.connect(this.convolverNode);
     this.convolverNode.connect(this.wetGain);
     this.wetGain.connect(this.pannerNode);
 
-    this.pannerNode.connect(this.analyser);
+    // Master Output with Limiter Protection
+    this.pannerNode.connect(this.limiterNode);
+    this.limiterNode.connect(this.analyser);
     this.analyser.connect(this.audioCtx.destination);
 
-    // Default buffer
+    // Initial demo synthesized audio
     this.currentBuffer = this.generateSynthBuffer('hall');
   }
 
-  // Load Saved Songs from IndexedDB
-  async loadSavedSongs() {
-    try {
-      const saved = await this.db.getAllSongs();
-      if (saved && saved.length > 0) {
-        const customTracks = saved.map(s => ({
-          id: s.id,
-          title: s.title,
-          artist: s.artist || 'Local Track',
-          duration: s.duration || 180,
-          fileSize: s.fileSize || 'Audio',
-          blob: s.blob,
-          isDemo: false
-        }));
-        this.songs = [...this.defaultSongs, ...customTracks];
-      }
-    } catch (e) {
-      console.warn('Could not restore saved songs from IndexedDB:', e);
-    }
-    return this.songs;
+  // Pre-generate 3 Ambience Impulse Responses (Hall, Room, Studio)
+  buildImpulseResponses() {
+    this.impulseCache['hall'] = this.createSyntheticImpulse(2.8, 2.0); // Concert Hall: long, expansive
+    this.impulseCache['room'] = this.createSyntheticImpulse(1.4, 2.8); // Acoustic Room: warm, intimate
+    this.impulseCache['studio'] = this.createSyntheticImpulse(0.6, 4.0); // Studio: dry, tight reflections
   }
 
-  // Generate 3D Spatial Concert Hall Impulse Response
-  buildHallImpulseResponse(duration = 2.5, decay = 2.0) {
+  createSyntheticImpulse(duration, decay) {
     const rate = this.audioCtx.sampleRate;
-    const length = rate * duration;
+    const length = Math.floor(rate * duration);
     const impulse = this.audioCtx.createBuffer(2, length, rate);
     const left = impulse.getChannelData(0);
     const right = impulse.getChannelData(1);
-    
+
     for (let i = 0; i < length; i++) {
       const n = (length - i) / length;
       const env = Math.pow(n, decay);
@@ -211,7 +248,7 @@ class PioneerDSPEngine {
     return impulse;
   }
 
-  // Synthesize Demonstration Audio
+  // Synthesize Demonstration Audio Chords
   generateSynthBuffer(type = 'hall') {
     const rate = this.audioCtx.sampleRate;
     const duration = 6.0;
@@ -236,41 +273,60 @@ class PioneerDSPEngine {
       const bassPulse = Math.sin(2 * Math.PI * 65.41 * t) * (0.6 + 0.4 * Math.sin(2 * Math.PI * 1.5 * t));
       sL += bassPulse * 0.22;
       sR += bassPulse * 0.22;
-      
+
       left[i] = sL;
       right[i] = sR;
     }
     return buffer;
   }
 
-  // Real-Time Controls
-  toggleConcertHall() {
-    this.isConcertHall = !this.isConcertHall;
-    if (this.isConcertHall) {
-      this.reverbMix = 65;
-      this.setReverbMix(65);
-      this.setEQBand(1, 4.0);
-      this.setEQBand(8, 3.5);
-      this.setEQBand(9, 4.0);
-    } else {
-      this.reverbMix = 0;
-      this.setReverbMix(0);
-      this.resetEQ();
+  // Load Saved Songs from Persistent IndexedDB
+  async loadSavedSongs() {
+    try {
+      const saved = await this.db.getAllSongs();
+      if (saved && saved.length > 0) {
+        const customTracks = saved.map(s => ({
+          id: s.id,
+          title: s.title,
+          artist: s.artist || 'Local Track',
+          duration: s.duration || 180,
+          fileSize: s.fileSize || 'Audio',
+          blob: s.blob,
+          isDemo: false
+        }));
+        this.songs = [...this.defaultSongs, ...customTracks];
+      }
+    } catch (e) {
+      console.warn('Failed to load songs from IndexedDB:', e);
     }
-    return this.isConcertHall;
+    return this.songs;
   }
 
-  setReverbMix(pct) {
-    this.reverbMix = pct;
-    const wet = pct / 100;
-    const now = this.audioCtx.currentTime;
-    this.wetGain.gain.setTargetAtTime(wet, now, 0.05);
-    this.dryGain.gain.setTargetAtTime(1.0 - (wet * 0.35), now, 0.05);
+  // DSP Real-Time Parameter Controls with Smooth Interpolation
+  setPreamp(gainDB) {
+    this.preampGain = gainDB;
+    const linear = Math.pow(10, gainDB / 20);
+    this.preampNode.gain.setTargetAtTime(linear, this.audioCtx.currentTime, 0.05);
   }
 
   setSuperBass(gainDB) {
     this.superBassGain = gainDB;
     this.superBassFilter.gain.setTargetAtTime(gainDB, this.audioCtx.currentTime, 0.05);
+  }
+
+  setDeepBass(gainDB) {
+    this.deepBassGain = gainDB;
+    this.deepBassFilter.gain.setTargetAtTime(gainDB, this.audioCtx.currentTime, 0.05);
+  }
+
+  setMid(gainDB) {
+    this.midGain = gainDB;
+    this.midFilter.gain.setTargetAtTime(gainDB, this.audioCtx.currentTime, 0.05);
+  }
+
+  setTreble(gainDB) {
+    this.trebleGain = gainDB;
+    this.trebleFilter.gain.setTargetAtTime(gainDB, this.audioCtx.currentTime, 0.05);
   }
 
   setEQBand(index, gainDB) {
@@ -286,17 +342,190 @@ class PioneerDSPEngine {
     }
   }
 
-  setPosition(pos) {
-    this.currentPosition = pos;
-    let pan = 0;
-    if (pos === 'fl') pan = -0.45;
-    if (pos === 'fr') pan = 0.45;
+  setAmbienceMode(mode) {
+    if (this.impulseCache[mode]) {
+      this.ambienceMode = mode;
+      this.convolverNode.buffer = this.impulseCache[mode];
+    }
+  }
+
+  setReverbMix(pct) {
+    this.reverbMix = pct;
+    const wet = pct / 100;
+    const now = this.audioCtx.currentTime;
+    this.wetGain.gain.setTargetAtTime(wet, now, 0.05);
+    this.dryGain.gain.setTargetAtTime(1.0 - (wet * 0.35), now, 0.05);
+  }
+
+  setBalance(pan) {
+    this.balance = pan;
     if (this.pannerNode.pan) {
       this.pannerNode.pan.setTargetAtTime(pan, this.audioCtx.currentTime, 0.05);
     }
   }
 
-  // Playback Engine
+  setCabinPosition(pos) {
+    this.cabinPosition = pos;
+    let pan = 0;
+    if (pos === 'fl') pan = -0.45;
+    if (pos === 'fr') pan = 0.45;
+    if (pos === 'fc') pan = 0;
+    if (pos === 'all') pan = 0;
+    this.setBalance(pan);
+  }
+
+  // 10 Real Factory Presets (All actually modify audio DSP nodes)
+  applyPreset(presetKey) {
+    switch(presetKey) {
+      case 'flat':
+        this.resetEQ();
+        this.setSuperBass(0);
+        this.setDeepBass(0);
+        this.setMid(0);
+        this.setTreble(0);
+        this.setPreamp(0);
+        this.setReverbMix(0);
+        break;
+      case 'bass': // Super Bass (Todoroki)
+        this.resetEQ();
+        this.setSuperBass(11);
+        this.setDeepBass(5);
+        this.setEQBand(0, 4);
+        this.setEQBand(1, 8);
+        this.setEQBand(8, 2);
+        this.setReverbMix(10);
+        break;
+      case 'deep_bass':
+        this.resetEQ();
+        this.setDeepBass(8);
+        this.setSuperBass(6);
+        this.setEQBand(0, 7);
+        this.setEQBand(1, 4);
+        this.setReverbMix(5);
+        break;
+      case 'hall': // Concert Hall
+        this.resetEQ();
+        this.setAmbienceMode('hall');
+        this.setReverbMix(65);
+        this.setEQBand(0, 3);
+        this.setEQBand(1, 4.5);
+        this.setEQBand(8, 3.5);
+        this.setEQBand(9, 4.0);
+        break;
+      case 'studio': // Studio Ambience
+        this.resetEQ();
+        this.setAmbienceMode('studio');
+        this.setReverbMix(25);
+        this.setEQBand(4, 1.5);
+        this.setEQBand(5, 2.0);
+        break;
+      case 'vocal': // Vocal Clarity
+        this.resetEQ();
+        this.setSuperBass(0);
+        this.setMid(4);
+        this.setTreble(2);
+        this.setEQBand(0, -3);
+        this.setEQBand(1, -2);
+        this.setEQBand(4, 3.5);
+        this.setEQBand(5, 5.0);
+        this.setEQBand(6, 4.0);
+        this.setReverbMix(20);
+        break;
+      case 'acoustic': // Natural Acoustic
+        this.resetEQ();
+        this.setAmbienceMode('room');
+        this.setReverbMix(35);
+        this.setEQBand(2, 3);
+        this.setEQBand(3, 2);
+        this.setEQBand(7, 3);
+        this.setEQBand(8, 4);
+        break;
+      case 'rock': // Punchy Rock
+        this.resetEQ();
+        this.setSuperBass(6);
+        this.setEQBand(0, 4);
+        this.setEQBand(1, 6);
+        this.setEQBand(5, -2);
+        this.setEQBand(7, 4);
+        this.setEQBand(8, 5);
+        this.setReverbMix(15);
+        break;
+      case 'classical': // Orchestral Hall
+        this.resetEQ();
+        this.setAmbienceMode('hall');
+        this.setReverbMix(55);
+        this.setEQBand(1, 3);
+        this.setEQBand(2, 2);
+        this.setEQBand(7, 3);
+        this.setEQBand(9, 5);
+        break;
+      case 'cinema': // Spatial Surround
+        this.resetEQ();
+        this.setDeepBass(7);
+        this.setSuperBass(7);
+        this.setAmbienceMode('hall');
+        this.setReverbMix(45);
+        this.setEQBand(0, 5);
+        this.setEQBand(8, 4);
+        this.setEQBand(9, 6);
+        break;
+    }
+  }
+
+  // User Custom Presets Management (localStorage)
+  saveCustomPreset(name) {
+    if (!name || !name.trim()) return false;
+    const presets = this.getCustomPresets();
+    presets[name.trim()] = {
+      eqGains: [...this.eqGains],
+      preampGain: this.preampGain,
+      superBassGain: this.superBassGain,
+      deepBassGain: this.deepBassGain,
+      midGain: this.midGain,
+      trebleGain: this.trebleGain,
+      ambienceMode: this.ambienceMode,
+      reverbMix: this.reverbMix,
+      balance: this.balance
+    };
+    localStorage.setItem('pioneer_custom_presets', JSON.stringify(presets));
+    return true;
+  }
+
+  getCustomPresets() {
+    try {
+      const data = localStorage.getItem('pioneer_custom_presets');
+      return data ? JSON.parse(data) : {};
+    } catch(e) {
+      return {};
+    }
+  }
+
+  applyCustomPreset(name) {
+    const presets = this.getCustomPresets();
+    const p = presets[name];
+    if (!p) return false;
+
+    if (p.eqGains) {
+      p.eqGains.forEach((g, idx) => this.setEQBand(idx, g));
+    }
+    if (p.preampGain !== undefined) this.setPreamp(p.preampGain);
+    if (p.superBassGain !== undefined) this.setSuperBass(p.superBassGain);
+    if (p.deepBassGain !== undefined) this.setDeepBass(p.deepBassGain);
+    if (p.midGain !== undefined) this.setMid(p.midGain);
+    if (p.trebleGain !== undefined) this.setTreble(p.trebleGain);
+    if (p.ambienceMode) this.setAmbienceMode(p.ambienceMode);
+    if (p.reverbMix !== undefined) this.setReverbMix(p.reverbMix);
+    if (p.balance !== undefined) this.setBalance(p.balance);
+    return true;
+  }
+
+  deleteCustomPreset(name) {
+    const presets = this.getCustomPresets();
+    delete presets[name];
+    localStorage.setItem('pioneer_custom_presets', JSON.stringify(presets));
+  }
+
+  // Playback Control
   async play() {
     if (this.audioCtx.state === 'suspended') {
       await this.audioCtx.resume();
@@ -365,12 +594,11 @@ class PioneerDSPEngine {
     this.sourceNode = this.audioCtx.createBufferSource();
     this.sourceNode.buffer = this.currentBuffer;
     this.sourceNode.loop = this.isRepeat;
-    this.sourceNode.connect(this.eqFilters[0]);
+    this.sourceNode.connect(this.preampNode);
 
     this.startTime = this.audioCtx.currentTime - offset;
     this.sourceNode.start(0, offset);
 
-    const dur = this.getCurrentDuration();
     this.sourceNode.onended = () => {
       if (this.isPlaying && !this.isRepeat) {
         this.playNext();
@@ -404,11 +632,10 @@ class PioneerDSPEngine {
         this.currentBuffer = decoded;
         return;
       } catch (e) {
-        console.error('Error decoding stored blob:', e);
+        console.error('Error decoding audio data from blob:', e);
       }
     }
 
-    // Demo fallback
     this.currentBuffer = this.generateSynthBuffer(song.demoType || 'hall');
   }
 
@@ -444,7 +671,7 @@ class PioneerDSPEngine {
       try {
         const arrayBuf = await file.arrayBuffer();
         const decoded = await this.audioCtx.decodeAudioData(arrayBuf.slice(0));
-        
+
         const songRecord = {
           id: 'user_' + Date.now() + '_' + Math.random().toString(36).substr(2, 6),
           title: file.name.replace(/\.[^/.]+$/, ''),
@@ -455,7 +682,6 @@ class PioneerDSPEngine {
           isDemo: false
         };
 
-        // Save to IndexedDB
         await this.db.saveSong(songRecord);
         songRecord.audioBuffer = decoded;
         this.songs.push(songRecord);
@@ -467,7 +693,6 @@ class PioneerDSPEngine {
     return newItems;
   }
 
-  // Delete User Track from Library & Storage
   async removeSong(id) {
     const idx = this.songs.findIndex(s => s.id === id);
     if (idx !== -1) {
