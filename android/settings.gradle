@@ -1,0 +1,2 @@
+rootProject.name = "PioneerDSP"
+include ":app"
