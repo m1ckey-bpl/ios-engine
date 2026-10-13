@@ -50,26 +50,25 @@ jobs:
         uses: softprops/action-gh-release@v2
         if: github.ref == 'refs/heads/main'
         with:
-          tag_name: v2.3.0
-          name: "Pioneer DSP v2.3.0 (Android, Windows & iOS)"
+          tag_name: v2.4.0
+          name: "Pioneer DSP v2.4.0 (Aesthetic UI & Android APK)"
           body: |
-            ## 🎵 Pioneer DSP v2.3.0 — Cross-Platform Release
+            ## 🎵 Pioneer DSP v2.4.0 — Aesthetic UI & Performance Edition
 
-            Now available for **Android**, **Windows**, and **iOS**!
+            Now available with major upgrades based on user feedback!
 
             ### 📦 Direct Downloads:
-            * 🤖 **Android**: `Pioneer_DSP.apk` (Install directly on any Android phone, no certificates required!)
-            * 🪟 **Windows**: `Pioneer_DSP_Windows.zip` (1-Click standalone desktop application!)
-            * 📱 **iOS**: `Pioneer_DSP_unsigned.ipa` (Sideloadly / AltStore / TrollStore)
+            * 🤖 **Android**: `Pioneer_DSP.apk` (Direct install on Android phone, 100% free)
+            * 🪟 **Windows**: `Pioneer_DSP_Windows.zip` (1-Click standalone desktop application)
+            * 📱 **iOS**: `Pioneer_DSP_unsigned.ipa` (Sideloadable IPA)
 
-            ### ✨ Features:
-            - **Real-Time 3D Concert Hall Reverb**
-            - **10-Band Graphic Equalizer**
-            - **Pioneer Todoroki Super Bass (+12dB)**
-            - **Car Cabin Listening Position Alignment**
-            - **Multi-Song Music Library Manager**
-            - **Working Spotify Streamer & Companion**
-            - **60fps Live Spectrum Visualizer**
+            ### ✨ Key Improvements in v2.4.0:
+            1. **Spotify Account Integration**: Direct login into Spotify account and in-app streaming with persistent cookie sessions.
+            2. **Pure Vector Iconography**: Replaced all emojis with sleek hardware-grade SVG vectors.
+            3. **Zero-Lag & Zero-Crash Optimization**: Removed canvas layout thrashing and continuous memory churn; added Android hardware layers and intent protection.
+            4. **Persistent Music Library (IndexedDB)**: Songs saved to device storage permanently survive app restarts.
+            5. **Real-Time Song Timer & Scrubber**: Live `00:00` timer and interactive seek slider.
+            6. **Minimalist Hi-Fi Aesthetic**: Dark matte obsidian cockpit design with precision telemetry.
           files: |
             Pioneer_DSP.apk
             windows/Pioneer_DSP_Windows.zip
@@ -111,7 +110,7 @@ jobs:
         uses: softprops/action-gh-release@v2
         if: github.ref == 'refs/heads/main'
         with:
-          tag_name: v2.3.0
+          tag_name: v2.4.0
           files: Pioneer_DSP_unsigned.ipa
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

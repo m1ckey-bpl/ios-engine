@@ -2,263 +2,381 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <title>Pioneer DSP - Sound Tune Audio Engine</title>
   <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
 
   <!-- Top App Header -->
-  <header class="header">
-    <div class="brand">
-      <img src="assets/logo.png" alt="Pioneer DSP" class="brand-logo">
-      <div class="brand-text">
+  <header class="app-header">
+    <div class="brand-meta">
+      <img src="assets/logo.png" alt="Pioneer DSP" class="brand-icon">
+      <div class="brand-title-group">
         <h1>PIONEER DSP</h1>
-        <p>SOUND TUNE ACOUSTIC ENGINE</p>
+        <span>SOUND TUNE ACOUSTIC ENGINE</span>
       </div>
     </div>
-    <div class="hires-badge">
-      <span>HI-RES</span>
-      <small>96kHz/24b</small>
+    <div class="engine-status-pill">
+      <div class="status-dot"></div>
+      <span class="status-text">HI-RES 96k</span>
     </div>
   </header>
 
-  <!-- Main Scrollable Content Area -->
-  <main class="content-area">
+  <!-- Main Viewport -->
+  <main class="main-viewport">
 
-    <!-- TAB 1: TUNER COCKPIT -->
-    <section id="tab-tuner" class="tab-pane active">
+    <!-- 1. TUNER COCKPIT -->
+    <section id="tab-tuner" class="view-panel active">
       
-      <!-- Giant Concert Hall Toggle Button -->
-      <button id="btn-concert-hall" class="hall-btn" onclick="toggleConcertHall()">
-        <div class="hall-icon">🏛️</div>
-        <div class="hall-info">
-          <h3>CONCERT HALL ACOUSTICS</h3>
-          <p id="hall-subtitle">Tap to Engage 3D Spatial Concert Hall Reverb</p>
-        </div>
-        <div id="hall-tag" class="hall-status">ENGAGE</div>
-      </button>
-
-      <!-- Real-Time Spectrum Analyzer Canvas -->
-      <div class="card highlight-cyan">
-        <div class="card-title">
-          <span>REAL-TIME SPECTRUM ANALYZER</span>
-          <span id="spectrum-status" style="color: #FF6B00;">LIVE DSP SIGNAL</span>
-        </div>
-        <canvas id="spectrumCanvas" class="spectrum-canvas"></canvas>
-      </div>
-
-      <!-- Dual Rotary Dials: Super Bass (Todoroki) & Reverb Mix -->
-      <div class="dials-row">
-        <div class="card dial-box">
-          <div class="card-title" style="margin-bottom: 4px;">SUPER BASS</div>
-          <div class="dial-val"><span id="val-super-bass">0</span><small>dB</small></div>
-          <input type="range" class="dial-slider" id="slider-super-bass" min="0" max="12" step="0.5" value="0" oninput="updateSuperBass(this.value)">
-          <small style="color: rgba(255,255,255,0.4); font-size: 9px; font-family: monospace;">TODOROKI BOOST</small>
-        </div>
-
-        <div class="card dial-box">
-          <div class="card-title" style="margin-bottom: 4px;">REVERB MIX</div>
-          <div class="dial-val"><span id="val-reverb-mix">0</span><small>%</small></div>
-          <input type="range" class="dial-slider" id="slider-reverb-mix" min="0" max="100" step="1" value="0" oninput="updateReverbMix(this.value)">
-          <small style="color: rgba(255,255,255,0.4); font-size: 9px; font-family: monospace;">WET / DRY MIX</small>
-        </div>
-      </div>
-
-      <!-- Presets Scroll Bar -->
-      <div class="card">
-        <div class="card-title">PIONEER SOUND TUNE PRESETS</div>
-        <div class="presets-scroll">
-          <button class="preset-chip active" onclick="applyPreset('flat', this)">FLAT / DIRECT</button>
-          <button class="preset-chip" onclick="applyPreset('hall', this)">CONCERT HALL</button>
-          <button class="preset-chip" onclick="applyPreset('bass', this)">SUPER BASS</button>
-          <button class="preset-chip" onclick="applyPreset('dynamic', this)">DYNAMIC LIVE</button>
-          <button class="preset-chip" onclick="applyPreset('vocal', this)">VOCAL CLARITY</button>
-          <button class="preset-chip" onclick="applyPreset('club', this)">CLUB DANCE</button>
-        </div>
-      </div>
-
-      <!-- Now Playing Player Bar -->
-      <div class="player-dock">
-        <div class="track-meta">
-          <div class="track-icon">🎵</div>
-          <div class="track-names">
-            <div id="dock-title" class="track-title">Concert Hall Acoustic Master</div>
-            <div id="dock-artist" class="track-artist">Pioneer Philharmonic Studio</div>
+      <!-- Concert Hall Hero Tile -->
+      <div id="hero-concert-hall" class="hall-hero-tile" onclick="toggleConcertHall()">
+        <div class="hall-hero-left">
+          <div class="hall-vector-icon">
+            <!-- SVG Acoustic Stage / Reverb Dome -->
+            <svg viewBox="0 0 24 24" width="22" height="22" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M3 20h18"/>
+              <path d="M4 20v-4a8 8 0 0 1 16 0v4"/>
+              <path d="M9 20v-8a3 3 0 0 1 6 0v8"/>
+              <circle cx="12" cy="7" r="1"/>
+            </svg>
           </div>
-          <div class="controls-row">
-            <button class="btn-ctrl" onclick="playPrev()">⏮️</button>
-            <button id="btn-play-dock" class="btn-ctrl btn-play" onclick="togglePlay()">▶</button>
-            <button class="btn-ctrl" onclick="playNext()">⏭️</button>
+          <div class="hall-text">
+            <h2>CONCERT HALL ACOUSTICS</h2>
+            <p id="hall-subtitle">Tap to engage 3D spatial acoustic reverberation</p>
           </div>
         </div>
+        <div id="hall-pill" class="switch-pill">OFF</div>
+      </div>
 
-        <input type="range" id="seek-slider" class="progress-bar" min="0" max="100" value="0" oninput="onSeek(this.value)">
-        <div class="time-row">
-          <span id="time-current">00:00</span>
-          <span id="time-total">03:00</span>
+      <!-- Real-Time Spectrum Analyzer -->
+      <div class="panel-card">
+        <div class="panel-card-header">
+          <div class="panel-card-title">
+            <svg viewBox="0 0 24 24" width="13" height="13" stroke="currentColor" stroke-width="2" fill="none">
+              <path d="M12 20V10"/>
+              <path d="M18 20V4"/>
+              <path d="M6 20v-4"/>
+            </svg>
+            REAL-TIME SPECTRUM
+          </div>
+          <span class="panel-card-subtitle" id="spectrum-label">STANDBY</span>
+        </div>
+        <div class="spectrum-box">
+          <canvas id="spectrumCanvas" class="spectrum-canvas"></canvas>
+        </div>
+      </div>
+
+      <!-- Rotary Sliders Row -->
+      <div class="dials-grid">
+        <div class="dial-card">
+          <div class="dial-card-head">
+            <span class="dial-title">SUPER BASS</span>
+            <div class="dial-value-badge"><span id="val-super-bass">0</span><small>dB</small></div>
+          </div>
+          <input type="range" class="pioneer-slider" id="slider-super-bass" min="0" max="12" step="0.5" value="0" oninput="updateSuperBass(this.value)">
+          <span class="dial-footer">TODOROKI BOOST 63Hz</span>
+        </div>
+
+        <div class="dial-card">
+          <div class="dial-card-head">
+            <span class="dial-title">REVERB MIX</span>
+            <div class="dial-value-badge"><span id="val-reverb-mix">0</span><small>%</small></div>
+          </div>
+          <input type="range" class="pioneer-slider" id="slider-reverb-mix" min="0" max="100" step="1" value="0" oninput="updateReverbMix(this.value)">
+          <span class="dial-footer">WET / DRY BLEND</span>
+        </div>
+      </div>
+
+      <!-- Sound Tune Presets -->
+      <div class="panel-card">
+        <div class="panel-card-header">
+          <span class="panel-card-title">ACOUSTIC PRESETS</span>
+        </div>
+        <div class="chip-row">
+          <button class="preset-pill active" onclick="applyPreset('flat', this)">FLAT / DIRECT</button>
+          <button class="preset-pill" onclick="applyPreset('hall', this)">CONCERT HALL</button>
+          <button class="preset-pill" onclick="applyPreset('bass', this)">SUPER BASS</button>
+          <button class="preset-pill" onclick="applyPreset('dynamic', this)">DYNAMIC LIVE</button>
+          <button class="preset-pill" onclick="applyPreset('vocal', this)">VOCAL CLARITY</button>
+          <button class="preset-pill" onclick="applyPreset('club', this)">CLUB DANCE</button>
         </div>
       </div>
 
     </section>
 
-    <!-- TAB 2: MULTI-SONG LIBRARY -->
-    <section id="tab-library" class="tab-pane">
-      <div class="card highlight-amber" style="display: flex; justify-content: space-between; align-items: center;">
-        <div>
-          <h3 style="font-size: 14px; font-weight: 900;">MUSIC LIBRARY</h3>
-          <p id="lib-count" style="font-size: 11px; color: rgba(255,255,255,0.6);">4 TRACKS READY FOR DSP TUNING</p>
-        </div>
-        <label for="file-input" style="background: #FF6B00; color: #000; padding: 8px 14px; border-radius: 10px; font-weight: 800; font-size: 11px; cursor: pointer; font-family: monospace;">
-          + ADD SONGS
-        </label>
-        <input type="file" id="file-input" multiple accept="audio/*" style="display: none;" onchange="handleFileImport(this.files)">
-      </div>
-
-      <div class="card">
-        <div class="card-title">SONGS & PLAYLIST</div>
-        <div id="song-list-container" class="song-list">
-          <!-- Dynamically populated songs -->
-        </div>
-      </div>
-    </section>
-
-    <!-- TAB 3: SPOTIFY WEB PLAYER -->
-    <section id="tab-spotify" class="tab-pane">
-      <div class="card">
-        <div class="card-title">
-          <span>SPOTIFY COMPANION & STREAMER</span>
-          <span style="color: #1DB954; font-weight: 900;">ONLINE</span>
-        </div>
-        <div class="presets-scroll" style="margin-bottom: 12px;">
-          <button class="preset-chip active" onclick="loadSpotifyPlaylist('37i9dQZF1DXcBWIGoYBM5M', this)">🔥 Today's Top Hits</button>
-          <button class="preset-chip" onclick="loadSpotifyPlaylist('37i9dQZF1DX0hWmn8726Rh', this)">🏛️ Live Concert Hall</button>
-          <button class="preset-chip" onclick="loadSpotifyPlaylist('37i9dQZF1DX0XUsuxWHRQd', this)">🔊 Bass Heavy Drive</button>
-          <button class="preset-chip" onclick="loadSpotifyPlaylist('37i9dQZF1DWXRqgorJj26U', this)">🎸 Rock Classics</button>
-          <button class="preset-chip" onclick="loadSpotifyPlaylist('37i9dQZF1DXdLEN7aqioXM', this)">☕ Chill Lo-Fi</button>
+    <!-- 2. EQUALIZER TAB -->
+    <section id="tab-eq" class="view-panel">
+      <div class="panel-card">
+        <div class="panel-card-header">
+          <div class="panel-card-title">
+            <svg viewBox="0 0 24 24" width="13" height="13" stroke="currentColor" stroke-width="2" fill="none">
+              <line x1="4" y1="21" x2="4" y2="14"></line>
+              <line x1="4" y1="10" x2="4" y2="3"></line>
+              <line x1="12" y1="21" x2="12" y2="12"></line>
+              <line x1="12" y1="8" x2="12" y2="3"></line>
+              <line x1="20" y1="21" x2="20" y2="16"></line>
+              <line x1="20" y1="12" x2="20" y2="3"></line>
+            </svg>
+            10-BAND GRAPHIC EQUALIZER
+          </div>
+          <button onclick="resetEQFlat()" style="background: rgba(255,140,0,0.1); border: 1px solid var(--border-active); color: var(--pioneer-orange); padding: 4px 10px; border-radius: 6px; font-size: 9px; font-weight: 800; cursor: pointer; font-family: var(--font-mono);">RESET FLAT</button>
         </div>
 
-        <iframe id="spotify-iframe" class="spotify-frame" src="https://open.spotify.com/embed/playlist/37i9dQZF1DXcBWIGoYBM5M?utm_source=generator&theme=0" allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture" loading="lazy"></iframe>
-      </div>
-
-      <!-- Floating DSP Quick Bar on Spotify Screen -->
-      <div class="card" style="display: flex; gap: 12px; align-items: center; justify-content: space-around;">
-        <button class="preset-chip" id="spot-hall-btn" onclick="toggleConcertHall()" style="flex: 1;">🏛️ CONCERT HALL</button>
-        <button class="preset-chip" id="spot-bass-btn" onclick="toggleSuperBassQuick()" style="flex: 1;">🔊 SUPER BASS</button>
-      </div>
-    </section>
-
-    <!-- TAB 4: 10-BAND GRAPHIC EQUALIZER -->
-    <section id="tab-eq" class="tab-pane">
-      <div class="card highlight-cyan">
-        <div class="card-title">
-          <span>10-BAND GRAPHIC EQUALIZER</span>
-          <button onclick="resetEQFlat()" style="background: rgba(255,107,0,0.15); border: 1px solid #FF6B00; color: #FF6B00; padding: 4px 10px; border-radius: 6px; font-size: 10px; font-weight: 800; cursor: pointer;">RESET FLAT</button>
-        </div>
-
-        <div class="eq-container" id="eq-faders-container">
+        <div class="eq-faders-grid" id="eq-faders-container">
           <!-- 10 faders dynamically generated -->
         </div>
       </div>
     </section>
 
-    <!-- TAB 5: ACOUSTICS STUDIO -->
-    <section id="tab-acoustics" class="tab-pane">
-      <div class="card">
-        <div class="card-title">ROOM ARCHITECTURE & REVERB</div>
-        <div style="display: flex; flex-direction: column; gap: 10px;">
-          <button class="preset-chip active" style="text-align: left; padding: 14px;" onclick="setAcousticRoom('hall', this)">🏛️ CONCERT HALL (SPATIAL 3D)</button>
-          <button class="preset-chip" style="text-align: left; padding: 14px;" onclick="setAcousticRoom('arena', this)">🏟️ LARGE ARENA</button>
-          <button class="preset-chip" style="text-align: left; padding: 14px;" onclick="setAcousticRoom('cathedral', this)">⛪ CATHEDRAL</button>
-          <button class="preset-chip" style="text-align: left; padding: 14px;" onclick="setAcousticRoom('studio', this)">🎙️ LIVE STUDIO</button>
+    <!-- 3. LIBRARY TAB (PERSISTENT STORAGE) -->
+    <section id="tab-library" class="view-panel">
+      <div class="panel-card">
+        <div class="panel-card-header">
+          <div>
+            <div class="panel-card-title">
+              <svg viewBox="0 0 24 24" width="13" height="13" stroke="currentColor" stroke-width="2" fill="none">
+                <path d="M9 18V5l12-2v13"></path>
+                <circle cx="6" cy="18" r="3"></circle>
+                <circle cx="18" cy="16" r="3"></circle>
+              </svg>
+              OFFLINE MUSIC LIBRARY
+            </div>
+            <span class="panel-card-subtitle" id="lib-count-label">LOADING SONGS...</span>
+          </div>
+          <label for="file-input" style="background: var(--pioneer-orange); color: #000; padding: 7px 12px; border-radius: 8px; font-weight: 800; font-size: 10px; cursor: pointer; font-family: var(--font-mono); display: flex; align-items: center; gap: 5px;">
+            <svg viewBox="0 0 24 24" width="12" height="12" stroke="currentColor" stroke-width="2.5" fill="none">
+              <line x1="12" y1="5" x2="12" y2="19"></line>
+              <line x1="5" y1="12" x2="19" y2="12"></line>
+            </svg>
+            ADD SONGS
+          </label>
+          <input type="file" id="file-input" multiple accept="audio/*" style="display: none;" onchange="handleFileImport(this.files)">
+        </div>
+
+        <div id="song-list-container" class="song-list-flow">
+          <!-- Populated dynamically -->
         </div>
       </div>
     </section>
 
-    <!-- TAB 6: CABIN LISTENING POSITION -->
-    <section id="tab-position" class="tab-pane">
-      <div class="card">
-        <div class="card-title">TIME ALIGNMENT (CABIN FOCUS)</div>
-        <div class="car-cabin">
-          <button class="seat-btn" id="seat-fl" onclick="selectSeat('fl')">DRIVER<br>(FL)</button>
-          <button class="seat-btn" id="seat-fr" onclick="selectSeat('fr')">PASSENGER<br>(FR)</button>
-          <button class="seat-btn" id="seat-rl" onclick="selectSeat('all')">REAR L</button>
-          <button class="seat-btn" id="seat-rr" onclick="selectSeat('all')">REAR R</button>
+    <!-- 4. CAR CABIN TIME ALIGNMENT -->
+    <section id="tab-cabin" class="view-panel">
+      <div class="panel-card">
+        <div class="panel-card-header">
+          <div class="panel-card-title">
+            <svg viewBox="0 0 24 24" width="13" height="13" stroke="currentColor" stroke-width="2" fill="none">
+              <rect x="2" y="3" width="20" height="14" rx="2"></rect>
+              <line x1="8" y1="21" x2="16" y2="21"></line>
+              <line x1="12" y1="17" x2="12" y2="21"></line>
+            </svg>
+            CAR CABIN ACOUSTIC ALIGNMENT
+          </div>
+          <span class="panel-card-subtitle" id="cabin-pos-label">ALL SEATS</span>
         </div>
-        <div style="margin-top: 14px; text-align: center;">
-          <button class="preset-chip active" id="btn-all-seats" onclick="selectSeat('all')">FOCUS: ALL SEATS</button>
+
+        <div class="cabin-stage">
+          <div class="car-silhouette">
+            <div id="seat-fl" class="seat-point seat-fl" onclick="selectSeat('fl')">FL</div>
+            <div id="seat-fr" class="seat-point seat-fr" onclick="selectSeat('fr')">FR</div>
+            <div id="seat-rl" class="seat-point seat-rl" onclick="selectSeat('rl')">RL</div>
+            <div id="seat-rr" class="seat-point seat-rr" onclick="selectSeat('rr')">RR</div>
+          </div>
+        </div>
+
+        <div class="chip-row">
+          <button class="preset-pill active" id="chip-pos-all" onclick="selectSeat('all')">ALL SEATS (CENTER)</button>
+          <button class="preset-pill" id="chip-pos-fl" onclick="selectSeat('fl')">DRIVER (FRONT-LEFT)</button>
+          <button class="preset-pill" id="chip-pos-fr" onclick="selectSeat('fr')">PASSENGER (FRONT-RIGHT)</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- 5. SPOTIFY DIRECT INTEGRATION -->
+    <section id="tab-spotify" class="view-panel">
+      <div class="panel-card">
+        <div class="panel-card-header">
+          <div class="panel-card-title">
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="#1DB954">
+              <path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm5.498 17.307c-.215.352-.676.463-1.028.248-2.816-1.72-6.36-2.11-10.536-1.156-.4.092-.8-.16-.892-.56-.092-.4.16-.8.56-.892 4.568-1.044 8.502-.601 11.648 1.332.352.215.463.676.248 1.028zm1.467-3.26c-.27.44-.848.58-1.288.31-3.224-1.982-8.139-2.555-11.952-1.398-.497.15-1.03-.135-1.18-.632-.15-.497.135-1.03.632-1.18 4.358-1.323 9.775-.683 13.478 1.612.44.27.58.848.31 1.288zm.126-3.41c-3.866-2.296-10.246-2.508-13.934-1.388-.593.18-1.226-.153-1.406-.746-.18-.593.153-1.226.746-1.406 4.237-1.286 11.281-1.042 15.733 1.602.533.316.708 1.008.392 1.541-.316.533-1.008.708-1.531.397z"/>
+            </svg>
+            SPOTIFY WEB PLAYER & ACCOUNT
+          </div>
+          <span class="panel-card-subtitle" style="color: #1DB954; font-weight: 800;">ACTIVE</span>
+        </div>
+
+        <div class="spotify-action-row">
+          <button class="btn-spotify-login" onclick="openSpotifyLogin()">
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor">
+              <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 3c1.66 0 3 1.34 3 3s-1.34 3-3 3-3-1.34-3-3 1.34-3 3-3zm0 14.2c-2.5 0-4.71-1.28-6-3.22.03-1.99 4-3.08 6-3.08 1.99 0 5.97 1.09 6 3.08-1.29 1.94-3.5 3.22-6 3.22z"/>
+            </svg>
+            LOG IN TO SPOTIFY ACCOUNT
+          </button>
+        </div>
+
+        <div class="chip-row">
+          <button class="preset-pill active" onclick="loadSpotifyStream('open')">WEB PLAYER / MY LIBRARY</button>
+          <button class="preset-pill" onclick="loadSpotifyPlaylist('37i9dQZF1DXcBWIGoYBM5M', this)">TODAY'S TOP HITS</button>
+          <button class="preset-pill" onclick="loadSpotifyPlaylist('37i9dQZF1DX0hWmn8726Rh', this)">LIVE CONCERT</button>
+          <button class="preset-pill" onclick="loadSpotifyPlaylist('37i9dQZF1DX0XUsuxWHRQd', this)">BASS DRIVE</button>
+        </div>
+
+        <iframe id="spotify-iframe" class="spotify-view-frame" src="https://open.spotify.com/embed/playlist/37i9dQZF1DXcBWIGoYBM5M?utm_source=generator&theme=0" allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"></iframe>
+
+        <!-- Floating DSP Overlay Controls on Spotify -->
+        <div style="display: flex; gap: 8px;">
+          <button class="preset-pill" id="spot-hall-toggle" onclick="toggleConcertHall()" style="flex: 1; text-align: center;">CONCERT HALL 3D</button>
+          <button class="preset-pill" id="spot-bass-toggle" onclick="toggleSuperBassQuick()" style="flex: 1; text-align: center;">SUPER BASS BOOST</button>
         </div>
       </div>
     </section>
 
   </main>
 
-  <!-- Bottom Navigation Bar -->
+  <!-- Floating Persistent Mini Player Dock -->
+  <div class="player-dock-bar">
+    <div class="player-dock-top">
+      <div class="player-dock-info">
+        <div class="dock-art">
+          <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none">
+            <path d="M9 18V5l12-2v13"></path>
+            <circle cx="6" cy="18" r="3"></circle>
+            <circle cx="18" cy="16" r="3"></circle>
+          </svg>
+        </div>
+        <div class="dock-track-text">
+          <div id="dock-title" class="dock-title">Concert Hall Acoustic Master</div>
+          <div id="dock-artist" class="dock-artist">Pioneer Philharmonic</div>
+        </div>
+      </div>
+
+      <div class="player-dock-controls">
+        <button class="btn-ctrl-round" onclick="playPrev()">
+          <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor">
+            <polygon points="19 20 9 12 19 4 19 20"></polygon>
+            <line x1="5" y1="19" x2="5" y2="5" stroke="currentColor" stroke-width="2"></line>
+          </svg>
+        </button>
+
+        <button id="btn-play-dock" class="btn-ctrl-round btn-play-primary" onclick="togglePlay()">
+          <svg id="icon-play" viewBox="0 0 24 24" width="15" height="15" fill="currentColor">
+            <polygon points="5 3 19 12 5 21 5 3"></polygon>
+          </svg>
+          <svg id="icon-pause" viewBox="0 0 24 24" width="15" height="15" fill="currentColor" style="display: none;">
+            <rect x="6" y="4" width="4" height="16"></rect>
+            <rect x="14" y="4" width="4" height="16"></rect>
+          </svg>
+        </button>
+
+        <button class="btn-ctrl-round" onclick="playNext()">
+          <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor">
+            <polygon points="5 4 15 12 5 20 5 4"></polygon>
+            <line x1="19" y1="5" x2="19" y2="19" stroke="currentColor" stroke-width="2"></line>
+          </svg>
+        </button>
+      </div>
+    </div>
+
+    <!-- Scrubber Progress Bar & Real-Time Timers -->
+    <div class="scrubber-group">
+      <input type="range" id="seek-slider" class="scrubber-slider" min="0" max="100" value="0" oninput="onSeekInput(this.value)" onchange="onSeekChange(this.value)">
+      <div class="timer-row">
+        <span id="time-current">00:00</span>
+        <span id="time-total">03:00</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Bottom Tab Navigation Bar -->
   <nav class="bottom-nav">
-    <button class="nav-item active" onclick="switchTab('tab-tuner', this)">
-      <svg viewBox="0 0 24 24"><path d="M3 17v2h6v-2H3zM3 5v2h10V5H3zm10 16v-2h8v-2h-8v-2h-2v6h2zM7 9v2H3v2h4v2h2V9H7zm14 4v-2H11v2h10zm-6-4h2V7h4V5h-4V3h-2v6z"/></svg>
+    <button class="nav-tab-btn active" onclick="switchTab('tuner', this)">
+      <svg viewBox="0 0 24 24">
+        <circle cx="12" cy="12" r="9"></circle>
+        <path d="M12 7v5l3 3"></path>
+      </svg>
       TUNER
     </button>
-    <button class="nav-item" onclick="switchTab('tab-library', this)">
-      <svg viewBox="0 0 24 24"><path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z"/></svg>
+
+    <button class="nav-tab-btn" onclick="switchTab('eq', this)">
+      <svg viewBox="0 0 24 24">
+        <line x1="4" y1="21" x2="4" y2="14"></line>
+        <line x1="4" y1="10" x2="4" y2="3"></line>
+        <line x1="12" y1="21" x2="12" y2="12"></line>
+        <line x1="12" y1="8" x2="12" y2="3"></line>
+        <line x1="20" y1="21" x2="20" y2="16"></line>
+        <line x1="20" y1="12" x2="20" y2="3"></line>
+      </svg>
+      EQ
+    </button>
+
+    <button class="nav-tab-btn" onclick="switchTab('library', this)">
+      <svg viewBox="0 0 24 24">
+        <path d="M9 18V5l12-2v13"></path>
+        <circle cx="6" cy="18" r="3"></circle>
+        <circle cx="18" cy="16" r="3"></circle>
+      </svg>
       LIBRARY
     </button>
-    <button class="nav-item" onclick="switchTab('tab-spotify', this)">
-      <svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm4.58 14.42c-.18.3-.57.39-.87.21-2.38-1.46-5.38-1.79-8.91-.98-.34.08-.68-.14-.76-.48-.08-.34.14-.68.48-.76 3.86-.88 7.18-.51 9.85 1.13.3.19.39.58.21.88zm1.22-2.73c-.23.37-.72.49-1.09.26-2.73-1.68-6.89-2.17-10.12-1.18-.42.13-.86-.11-.99-.53-.13-.42.11-.86.53-.99 3.69-1.12 8.27-.58 11.41 1.35.37.23.49.72.26 1.09zm.1-2.84C14.63 8.92 9.23 8.74 6.1 9.69c-.5.15-1.03-.13-1.18-.63-.15-.5.13-1.03.63-1.18 3.62-1.1 9.58-.89 13.37 1.36.45.27.6.86.33 1.31-.27.45-.86.6-1.31.33z"/></svg>
-      SPOTIFY
-    </button>
-    <button class="nav-item" onclick="switchTab('tab-eq', this)">
-      <svg viewBox="0 0 24 24"><path d="M10 20h4V4h-4v16zm-6 0h4v-8H4v8zM16 9v11h4V9h-4z"/></svg>
-      EQUALIZER
-    </button>
-    <button class="nav-item" onclick="switchTab('tab-acoustics', this)">
-      <svg viewBox="0 0 24 24"><path d="M4 10v7h3v-7H4zm6 0v7h3v-7h-3zm6 0v7h3v-7h-3zM2 22h19v-3H2v3zm9.5-20L2 6v2h19V6l-9.5-4z"/></svg>
-      ACOUSTICS
-    </button>
-    <button class="nav-item" onclick="switchTab('tab-position', this)">
-      <svg viewBox="0 0 24 24"><path d="M18.92 6.01C18.72 5.42 18.16 5 17.5 5h-11c-.66 0-1.21.42-1.42 1.01L3 12v8c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-1h12v1c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-8l-2.08-5.99zM6.5 16c-.83 0-1.5-.67-1.5-1.5S5.67 13 6.5 13s1.5.67 1.5 1.5S7.33 16 6.5 16zm11 0c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5zM5 11l1.5-4.5h11L19 11H5z"/></svg>
+
+    <button class="nav-tab-btn" onclick="switchTab('cabin', this)">
+      <svg viewBox="0 0 24 24">
+        <rect x="3" y="4" width="18" height="16" rx="2"></rect>
+        <circle cx="8" cy="10" r="1.5"></circle>
+        <circle cx="16" cy="10" r="1.5"></circle>
+      </svg>
       CABIN
+    </button>
+
+    <button class="nav-tab-btn spotify-tab" onclick="switchTab('spotify', this)">
+      <svg viewBox="0 0 24 24" fill="currentColor" stroke="none">
+        <path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm5.498 17.307c-.215.352-.676.463-1.028.248-2.816-1.72-6.36-2.11-10.536-1.156-.4.092-.8-.16-.892-.56-.092-.4.16-.8.56-.892 4.568-1.044 8.502-.601 11.648 1.332.352.215.463.676.248 1.028zm1.467-3.26c-.27.44-.848.58-1.288.31-3.224-1.982-8.139-2.555-11.952-1.398-.497.15-1.03-.135-1.18-.632-.15-.497.135-1.03.632-1.18 4.358-1.323 9.775-.683 13.478 1.612.44.27.58.848.31 1.288zm.126-3.41c-3.866-2.296-10.246-2.508-13.934-1.388-.593.18-1.226-.153-1.406-.746-.18-.593.153-1.226.746-1.406 4.237-1.286 11.281-1.042 15.733 1.602.533.316.708 1.008.392 1.541-.316.533-1.008.708-1.531.397z"/>
+      </svg>
+      SPOTIFY
     </button>
   </nav>
 
-  <!-- Audio Core & Script Execution -->
   <script src="js/dsp-engine.js"></script>
   <script>
-    // Tab Switching
+    // Tab Navigation
+    let activeTabId = 'tuner';
     function switchTab(tabId, el) {
-      document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
-      document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
-      document.getElementById(tabId).classList.add('active');
-      el.classList.add('active');
+      activeTabId = tabId;
+      document.querySelectorAll('.view-panel').forEach(p => p.classList.remove('active'));
+      document.querySelectorAll('.nav-tab-btn').forEach(b => b.classList.remove('active'));
+      
+      const target = document.getElementById('tab-' + tabId);
+      if (target) target.classList.add('active');
+      if (el) el.classList.add('active');
+
+      if (tabId === 'tuner') {
+        initCanvasDimensions();
+      }
     }
 
-    // Concert Hall Toggle
+    // DSP Controls
     function toggleConcertHall() {
       const active = window.dspEngine.toggleConcertHall();
-      const btn = document.getElementById('btn-concert-hall');
-      const tag = document.getElementById('hall-tag');
-      const sub = document.getElementById('hall-subtitle');
-      const spotBtn = document.getElementById('spot-hall-btn');
+      const hero = document.getElementById('hero-concert-hall');
+      const pill = document.getElementById('hall-pill');
+      const subtitle = document.getElementById('hall-subtitle');
+      const spotToggle = document.getElementById('spot-hall-toggle');
 
       if (active) {
-        btn.classList.add('active');
-        tag.innerText = 'ACTIVE';
-        sub.innerText = '3D Spatial Reverb Active • Live Stage Acoustics';
-        document.getElementById('slider-reverb-mix').value = 65;
-        document.getElementById('val-reverb-mix').innerText = '65';
-        if (spotBtn) spotBtn.classList.add('active');
+        hero.classList.add('active');
+        pill.innerText = 'ACTIVE';
+        subtitle.innerText = 'Engaged • 3D Architectural Acoustic Reflections';
+        if (spotToggle) spotToggle.classList.add('active');
       } else {
-        btn.classList.remove('active');
-        tag.innerText = 'ENGAGE';
-        sub.innerText = 'Tap to Engage 3D Spatial Concert Hall Reverb';
-        document.getElementById('slider-reverb-mix').value = 0;
-        document.getElementById('val-reverb-mix').innerText = '0';
-        if (spotBtn) spotBtn.classList.remove('active');
+        hero.classList.remove('active');
+        pill.innerText = 'OFF';
+        subtitle.innerText = 'Tap to engage 3D spatial acoustic reverberation';
+        if (spotToggle) spotToggle.classList.remove('active');
       }
+      document.getElementById('slider-reverb-mix').value = window.dspEngine.reverbMix;
+      document.getElementById('val-reverb-mix').innerText = window.dspEngine.reverbMix;
       updateEQFaderVisuals();
     }
 
-    // Super Bass
     function updateSuperBass(val) {
       document.getElementById('val-super-bass').innerText = val;
       window.dspEngine.setSuperBass(parseFloat(val));
@@ -266,22 +384,22 @@
 
     function toggleSuperBassQuick() {
       const cur = window.dspEngine.superBassGain;
-      const target = cur > 0 ? 0 : 9;
-      document.getElementById('slider-super-bass').value = target;
-      updateSuperBass(target);
-      const btn = document.getElementById('spot-bass-btn');
-      if (target > 0) btn.classList.add('active'); else btn.classList.remove('active');
+      const next = cur > 0 ? 0 : 10;
+      updateSuperBass(next);
+      document.getElementById('slider-super-bass').value = next;
+      const spotToggle = document.getElementById('spot-bass-toggle');
+      if (spotToggle) {
+        spotToggle.classList.toggle('active', next > 0);
+      }
     }
 
-    // Reverb Mix
     function updateReverbMix(val) {
       document.getElementById('val-reverb-mix').innerText = val;
       window.dspEngine.setReverbMix(parseFloat(val));
     }
 
-    // Presets
     function applyPreset(preset, el) {
-      document.querySelectorAll('.preset-chip').forEach(c => c.classList.remove('active'));
+      document.querySelectorAll('#tab-tuner .preset-pill').forEach(b => b.classList.remove('active'));
       el.classList.add('active');
 
       if (preset === 'flat') {
@@ -289,25 +407,25 @@
         window.dspEngine.setSuperBass(0);
         window.dspEngine.setReverbMix(0);
         document.getElementById('slider-super-bass').value = 0;
-        document.getElementById('slider-reverb-mix').value = 0;
         document.getElementById('val-super-bass').innerText = '0';
+        document.getElementById('slider-reverb-mix').value = 0;
         document.getElementById('val-reverb-mix').innerText = '0';
-        document.getElementById('btn-concert-hall').classList.remove('active');
+        document.getElementById('hero-concert-hall').classList.remove('active');
+        document.getElementById('hall-pill').innerText = 'OFF';
       } else if (preset === 'hall') {
-        toggleConcertHall();
+        if (!window.dspEngine.isConcertHall) toggleConcertHall();
       } else if (preset === 'bass') {
-        window.dspEngine.setSuperBass(10);
-        document.getElementById('slider-super-bass').value = 10;
-        document.getElementById('val-super-bass').innerText = '10';
+        updateSuperBass(11);
+        document.getElementById('slider-super-bass').value = 11;
       } else if (preset === 'dynamic') {
-        window.dspEngine.setEQBand(0, 6);
-        window.dspEngine.setEQBand(1, 5);
-        window.dspEngine.setEQBand(8, 6);
-        window.dspEngine.setEQBand(9, 7);
+        window.dspEngine.setEQBand(0, 5);
+        window.dspEngine.setEQBand(1, 4.5);
+        window.dspEngine.setEQBand(8, 5);
+        window.dspEngine.setEQBand(9, 6);
       } else if (preset === 'vocal') {
-        window.dspEngine.setEQBand(4, 3.5);
-        window.dspEngine.setEQBand(5, 5.5);
-        window.dspEngine.setEQBand(6, 4);
+        window.dspEngine.setEQBand(4, 3);
+        window.dspEngine.setEQBand(5, 5);
+        window.dspEngine.setEQBand(6, 3.5);
       } else if (preset === 'club') {
         window.dspEngine.setEQBand(1, 7);
         window.dspEngine.setEQBand(8, 5);
@@ -315,25 +433,40 @@
       updateEQFaderVisuals();
     }
 
-    // Playback Controls
+    // Playback & Scrubber Timer Engine
+    let isSeeking = false;
     function togglePlay() {
       const playing = window.dspEngine.togglePlay();
-      document.getElementById('btn-play-dock').innerText = playing ? '⏸' : '▶';
+      updatePlayButtonUI(playing);
       updatePlayerDock();
     }
 
-    function playNext() {
-      window.dspEngine.playNext();
+    function updatePlayButtonUI(playing) {
+      document.getElementById('icon-play').style.display = playing ? 'none' : 'block';
+      document.getElementById('icon-pause').style.display = playing ? 'block' : 'none';
+      document.getElementById('spectrum-label').innerText = playing ? 'LIVE 60FPS' : 'STANDBY';
+    }
+
+    async function playNext() {
+      await window.dspEngine.playNext();
       updatePlayerDock();
     }
 
-    function playPrev() {
-      window.dspEngine.playPrev();
+    async function playPrev() {
+      await window.dspEngine.playPrev();
       updatePlayerDock();
     }
 
-    function onSeek(val) {
+    function onSeekInput(val) {
+      isSeeking = true;
+      const dur = window.dspEngine.getCurrentDuration();
+      const current = dur * (val / 100);
+      document.getElementById('time-current').innerText = formatTime(current);
+    }
+
+    function onSeekChange(val) {
       window.dspEngine.seek(val / 100);
+      isSeeking = false;
     }
 
     function updatePlayerDock() {
@@ -347,59 +480,105 @@
     }
 
     function formatTime(secs) {
+      if (isNaN(secs) || secs < 0) return '00:00';
       const m = Math.floor(secs / 60);
       const s = Math.floor(secs % 60);
       return (m < 10 ? '0' : '') + m + ':' + (s < 10 ? '0' : '') + s;
     }
 
-    // Render Song List in Library Tab
+    // 100ms High-Precision Timer Loop
+    setInterval(() => {
+      if (!window.dspEngine) return;
+      const cur = window.dspEngine.getCurrentTime();
+      const dur = window.dspEngine.getCurrentDuration();
+
+      if (!isSeeking) {
+        document.getElementById('time-current').innerText = formatTime(cur);
+        document.getElementById('time-total').innerText = formatTime(dur);
+        if (dur > 0) {
+          document.getElementById('seek-slider').value = (cur / dur) * 100;
+        }
+      }
+    }, 100);
+
+    // Library Rendering
     function renderSongList() {
       const container = document.getElementById('song-list-container');
       container.innerHTML = '';
       window.dspEngine.songs.forEach((s, idx) => {
         const isCur = idx === window.dspEngine.currentIndex;
-        const item = document.createElement('div');
-        item.className = 'song-item' + (isCur ? ' active' : '');
-        item.innerHTML = `
-          <div class="num">${idx + 1}</div>
-          <div class="info">
-            <h4>${s.title}</h4>
-            <p>${s.artist} • ${s.fileSize || 'Hi-Res'}</p>
+        const tile = document.createElement('div');
+        tile.className = 'song-tile' + (isCur ? ' active' : '');
+        
+        let deleteBtn = '';
+        if (!s.isDemo) {
+          deleteBtn = `
+            <button class="btn-icon-subtle" onclick="event.stopPropagation(); removeSong('${s.id}')">
+              <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2" fill="none">
+                <polyline points="3 6 5 6 21 6"></polyline>
+                <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+              </svg>
+            </button>
+          `;
+        }
+
+        tile.innerHTML = `
+          <div class="song-tile-left">
+            <div class="song-tile-icon">
+              <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2" fill="none">
+                <circle cx="12" cy="12" r="10"></circle>
+                <polygon points="10 8 16 12 10 16 10 8" fill="currentColor"></polygon>
+              </svg>
+            </div>
+            <div class="song-tile-meta">
+              <div class="song-tile-title">${s.title}</div>
+              <div class="song-tile-artist">${s.artist} • ${s.fileSize || 'Hi-Fi'}</div>
+            </div>
           </div>
-          <div style="font-size: 11px; font-family: monospace; color: rgba(255,255,255,0.5);">
-            ${formatTime(s.duration)}
+          <div class="song-tile-right">
+            <span class="song-tile-duration">${formatTime(s.duration)}</span>
+            ${deleteBtn}
           </div>
         `;
-        item.onclick = () => {
-          window.dspEngine.selectSong(idx);
+        tile.onclick = async () => {
+          await window.dspEngine.selectSong(idx);
           if (!window.dspEngine.isPlaying) togglePlay();
           updatePlayerDock();
         };
-        container.appendChild(item);
+        container.appendChild(tile);
       });
-      document.getElementById('lib-count').innerText = window.dspEngine.songs.length + ' TRACKS READY FOR DSP TUNING';
+      document.getElementById('lib-count-label').innerText = `${window.dspEngine.songs.length} TRACKS IN STORAGE (PERSISTENT)`;
     }
 
     async function handleFileImport(files) {
       if (files && files.length > 0) {
+        document.getElementById('lib-count-label').innerText = 'IMPORTING & SAVING TRACKS...';
         await window.dspEngine.importFiles(files);
         renderSongList();
         updatePlayerDock();
       }
     }
 
+    async function removeSong(id) {
+      await window.dspEngine.removeSong(id);
+      renderSongList();
+      updatePlayerDock();
+    }
+
     // 10-Band EQ Render
     function renderEQFaders() {
       const container = document.getElementById('eq-faders-container');
       container.innerHTML = '';
-      const labels = ['31Hz', '63Hz', '125Hz', '250Hz', '500Hz', '1kHz', '2kHz', '4kHz', '8kHz', '16kHz'];
+      const labels = ['31', '63', '125', '250', '500', '1k', '2k', '4k', '8k', '16k'];
       labels.forEach((lbl, idx) => {
         const col = document.createElement('div');
-        col.className = 'eq-fader-col';
+        col.className = 'eq-col';
         col.innerHTML = `
-          <div class="db" id="eq-db-${idx}">0dB</div>
-          <input type="range" id="eq-fader-${idx}" min="-12" max="12" step="0.5" value="0" oninput="onEQFader(${idx}, this.value)">
-          <div class="freq">${lbl}</div>
+          <span class="eq-db" id="eq-db-${idx}">0dB</span>
+          <div class="eq-slider-vertical-wrap">
+            <input type="range" class="eq-slider-v" id="eq-fader-${idx}" min="-12" max="12" step="0.5" value="0" oninput="onEQFader(${idx}, this.value)">
+          </div>
+          <span class="eq-freq">${lbl}</span>
         `;
         container.appendChild(col);
       });
@@ -424,61 +603,107 @@
       updateEQFaderVisuals();
     }
 
-    // Spotify Playlist Loader
-    function loadSpotifyPlaylist(id, el) {
-      document.querySelectorAll('#tab-spotify .preset-chip').forEach(c => c.classList.remove('active'));
-      el.classList.add('active');
-      document.getElementById('spotify-iframe').src = `https://open.spotify.com/embed/playlist/${id}?utm_source=generator&theme=0`;
-    }
-
-    // Cabin Seats
+    // Car Cabin Listening Alignment
     function selectSeat(pos) {
-      document.querySelectorAll('.seat-btn').forEach(b => b.classList.remove('active'));
-      if (pos === 'fl') document.getElementById('seat-fl').classList.add('active');
-      if (pos === 'fr') document.getElementById('seat-fr').classList.add('active');
+      document.querySelectorAll('.seat-point').forEach(p => p.classList.remove('active'));
+      document.querySelectorAll('#tab-cabin .preset-pill').forEach(c => c.classList.remove('active'));
+
+      if (pos === 'fl') {
+        document.getElementById('seat-fl').classList.add('active');
+        document.getElementById('chip-pos-fl').classList.add('active');
+        document.getElementById('cabin-pos-label').innerText = 'DRIVER (FRONT-LEFT)';
+      } else if (pos === 'fr') {
+        document.getElementById('seat-fr').classList.add('active');
+        document.getElementById('chip-pos-fr').classList.add('active');
+        document.getElementById('cabin-pos-label').innerText = 'PASSENGER (FRONT-RIGHT)';
+      } else {
+        document.getElementById('chip-pos-all').classList.add('active');
+        document.getElementById('cabin-pos-label').innerText = 'ALL SEATS (CENTER FOCUS)';
+      }
       window.dspEngine.setPosition(pos);
     }
 
-    // Real-Time Canvas Spectrum Animation (60fps)
+    // Spotify Integration Functions
+    function openSpotifyLogin() {
+      // In Android WebView, this navigates directly to Spotify login with persistent cookies
+      document.getElementById('spotify-iframe').src = 'https://accounts.spotify.com/en/login?continue=https%3A%2F%2Fopen.spotify.com%2F';
+    }
+
+    function loadSpotifyStream(mode) {
+      document.getElementById('spotify-iframe').src = 'https://open.spotify.com/';
+    }
+
+    function loadSpotifyPlaylist(id, el) {
+      document.querySelectorAll('#tab-spotify .preset-pill').forEach(c => c.classList.remove('active'));
+      if (el) el.classList.add('active');
+      document.getElementById('spotify-iframe').src = `https://open.spotify.com/embed/playlist/${id}?utm_source=generator&theme=0`;
+    }
+
+    // ZERO-LAG Optimized Spectrum Analyzer
     const canvas = document.getElementById('spectrumCanvas');
-    const ctx = canvas.getContext('2d');
-    function drawSpectrum() {
-      requestAnimationFrame(drawSpectrum);
-      const w = canvas.width = canvas.clientWidth;
-      const h = canvas.height = canvas.clientHeight;
-      ctx.clearRect(0, 0, w, h);
+    const ctx = canvas.getContext('2d', { alpha: false });
+    let canvasW = 0;
+    let canvasH = 0;
+    let cachedGradient = null;
 
-      if (window.dspEngine && window.dspEngine.analyser) {
-        const bufferLength = window.dspEngine.analyser.frequencyBinCount;
-        const dataArray = new Uint8Array(bufferLength);
-        if (window.dspEngine.isPlaying) {
-          window.dspEngine.analyser.getByteFrequencyData(dataArray);
-        }
-
-        const barCount = 24;
-        const barWidth = (w / barCount) - 3;
-        for (let i = 0; i < barCount; i++) {
-          let val = window.dspEngine.isPlaying ? (dataArray[i] / 255.0) : (0.05 + 0.05 * Math.sin(Date.now() / 400 + i));
-          const barHeight = Math.max(4, val * (h - 8));
-          const x = i * (barWidth + 3);
-          const y = h - barHeight;
-
-          const grad = ctx.createLinearGradient(0, y, 0, h);
-          grad.addColorStop(0, '#FF6B00');
-          grad.addColorStop(0.5, '#FFA500');
-          grad.addColorStop(1, '#00E5FF');
-          ctx.fillStyle = grad;
-          ctx.fillRect(x, y, barWidth, barHeight);
-        }
+    function initCanvasDimensions() {
+      const rect = canvas.getBoundingClientRect();
+      if (rect.width > 0 && rect.height > 0) {
+        canvas.width = canvasW = Math.floor(rect.width);
+        canvas.height = canvasH = Math.floor(rect.height);
+        
+        // Cache gradient ONCE, avoid 60 allocations per second
+        cachedGradient = ctx.createLinearGradient(0, 0, 0, canvasH);
+        cachedGradient.addColorStop(0, '#FF8C00');
+        cachedGradient.addColorStop(0.6, '#FFAA00');
+        cachedGradient.addColorStop(1, '#00E5FF');
       }
     }
 
-    // Initialize
-    window.addEventListener('DOMContentLoaded', () => {
+    window.addEventListener('resize', initCanvasDimensions);
+
+    function drawSpectrumLoop() {
+      requestAnimationFrame(drawSpectrumLoop);
+
+      // Only draw if Tuner tab is visible to eliminate CPU/GPU drain
+      if (activeTabId !== 'tuner' || canvasW === 0) return;
+
+      ctx.fillStyle = '#0a0c10';
+      ctx.fillRect(0, 0, canvasW, canvasH);
+
+      const engine = window.dspEngine;
+      if (!engine || !engine.analyser) return;
+
+      const dataArray = engine.spectrumBuffer;
+      if (engine.isPlaying) {
+        engine.analyser.getByteFrequencyData(dataArray);
+      }
+
+      const barCount = 20;
+      const barWidth = Math.max(3, (canvasW / barCount) - 3);
+      ctx.fillStyle = cachedGradient || '#FF8C00';
+
+      for (let i = 0; i < barCount; i++) {
+        let val = engine.isPlaying ? (dataArray[i] / 255.0) : (0.04 + 0.03 * Math.sin(Date.now() / 350 + i));
+        const barH = Math.max(3, val * (canvasH - 6));
+        const x = i * (barWidth + 3);
+        const y = canvasH - barH;
+        ctx.fillRect(x, y, barWidth, barH);
+      }
+    }
+
+    // App Initialization
+    window.addEventListener('DOMContentLoaded', async () => {
       renderEQFaders();
+      initCanvasDimensions();
+      
+      // Restore persistent songs from IndexedDB
+      await window.dspEngine.loadSavedSongs();
       renderSongList();
       updatePlayerDock();
-      drawSpectrum();
+      
+      // Start lightweight render loop
+      requestAnimationFrame(drawSpectrumLoop);
     });
   </script>
 </body>
