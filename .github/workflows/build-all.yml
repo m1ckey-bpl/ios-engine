@@ -50,26 +50,40 @@ jobs:
         uses: softprops/action-gh-release@v2
         if: github.ref == 'refs/heads/main'
         with:
-          tag_name: v3.1.0
-          name: "Pioneer DSP v3.1.0 (Spotify PKCE OAuth Fix & Master Audio DSP)"
+          tag_name: v3.2.0
+          name: "Pioneer DSP v3.2.0 (Master Edition — Complete Music Player & DSP Engine)"
           body: |
-            ## 🎵 Pioneer DSP v3.1.0 — Fixed Spotify OAuth Callback & Master Audio DSP
+            ## 🎵 Pioneer DSP v3.2.0 — Complete Android Music Player, Spotify Hub & DSP Engine
 
             ### 📦 Direct Downloads:
             * 🤖 **Android**: `Pioneer_DSP.apk` (Direct install on Android phone, 100% free)
             * 🪟 **Windows**: `Pioneer_DSP_Windows.zip` (1-Click standalone desktop application)
             * 📱 **iOS**: `Pioneer_DSP_unsigned.ipa` (Sideloadable IPA)
 
-            ### 🚀 Updates in v3.1.0:
-            * **Fixed Spotify OAuth Callback Flow**:
-              - System browser / external custom tab launch via native `PioneerBridge` keeps WebView session & PKCE verifier completely intact.
-              - Callback URL queuing on cold start & seamless dispatch on `onNewIntent` for `pioneerdsp://callback`.
-              - Resilient multi-strategy URL parsing for custom schemes and query strings.
-              - Live visual connection feedback status banner and Spotify configuration settings modal.
-            * **Preserved Full Hi-Fi Audio DSP Engine**:
-              - 10-Band Graphic Equalizer, Todoroki Super Bass (63Hz), Deep Sub-Bass (31Hz).
-              - Reverb Ambience Simulation (Concert Hall, Live Room, Studio), Preamp Gain, Peak Limiter.
-              - Car Cabin Time Alignment, Stereo Balance, and Persistent Offline Music Library.
+            ### 🚀 Highlights in Master Edition v3.2.0:
+            1. **Fixed JSON & Spotify Errors**:
+               - Handled HTTP 204 No Content without parsing empty JSON.
+               - Defensive JSON parsing resolving `"Unexpected token 'C'... is not valid JSON"` issues.
+               - Integrated Spotify Connect device discovery (`/v1/me/player/devices`) and active device transfer resolving `"Player command failed: No active device found"`.
+            2. **Complete In-App Spotify Integration**:
+               - In-app playback control dashboard (artwork, title, artist, play/pause, prev/next, seek bar, volume, shuffle, repeat).
+               - Spotify device switcher chips.
+               - Spotify live search for tracks & artists.
+               - Personal playlists browsing and context playback.
+            3. **Automatic Android MediaStore Music Discovery**:
+               - Native MediaStore audio scanner querying `EXTERNAL_CONTENT_URI` with modern Android permissions (`READ_MEDIA_AUDIO` / `READ_EXTERNAL_STORAGE`).
+               - Filter local tracks by Title, Artist, and Album with instant search.
+            4. **Local Network Audio & HTTP/HTTPS Streaming**:
+               - Direct streaming of local PC/NAS media servers and online HTTP/HTTPS streams.
+               - Stream audio routes directly through the 10-band EQ, Todoroki Super Bass, and Reverb engine.
+               - Curated lossless audiophile stream presets + custom saved streams list.
+            5. **100% Removal of Demo Audio & Synthetic Chords**:
+               - Removed all hardcoded synthetic demo songs and test math tones.
+               - Clean, honest empty-state UI with 1-tap "Scan Device Audio".
+            6. **Unified 9-Section Cockpit UI**:
+               - Home, Spotify, Local Music, Network Music, Now Playing, Equalizer, Audio Effects, Presets, Settings.
+               - Source indicator badge (`LOCAL AUDIO`, `NETWORK STREAM`, `SPOTIFY REMOTE`).
+               - Full-screen Now Playing screen and persistent mini-dock.
 
             ### ✨ Major Capabilities in v3.0.0:
             1. **Legitimate Spotify PKCE OAuth & Web API Integration**:
@@ -133,7 +147,7 @@ jobs:
         uses: softprops/action-gh-release@v2
         if: github.ref == 'refs/heads/main'
         with:
-          tag_name: v3.1.0
+          tag_name: v3.2.0
           files: Pioneer_DSP_unsigned.ipa
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

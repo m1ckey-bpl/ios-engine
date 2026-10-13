@@ -1,24 +1,48 @@
 package com.pioneerdsp.app;
 
+import android.Manifest;
 import android.app.Activity;
+import android.content.ContentUris;
+import android.content.Context;
 import android.content.Intent;
+import android.content.pm.PackageManager;
+import android.database.Cursor;
+import android.net.ConnectivityManager;
+import android.net.NetworkCapabilities;
+import android.net.NetworkInfo;
 import android.net.Uri;
+import android.os.Build;
 import android.os.Bundle;
+import android.provider.MediaStore;
+import android.util.Base64;
 import android.view.View;
 import android.webkit.CookieManager;
 import android.webkit.JavascriptInterface;
 import android.webkit.ValueCallback;
 import android.webkit.WebChromeClient;
 import android.webkit.WebResourceRequest;
+import android.webkit.WebResourceResponse;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
+import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.core.app.ActivityCompat;
+import androidx.core.content.ContextCompat;
+
+import org.json.JSONArray;
+import org.json.JSONObject;
+
+import java.io.ByteArrayOutputStream;
+import java.io.InputStream;
+import java.util.HashMap;
+import java.util.Map;
 
 public class MainActivity extends AppCompatActivity {
     private WebView webView;
     private ValueCallback<Uri[]> filePathCallback;
     private static final int FILE_CHOOSER_REQ = 1001;
+    private static final int STORAGE_PERM_REQ = 2002;
     private String pendingAuthUrl = null;
     private boolean isPageLoaded = false;
 
@@ -33,6 +57,135 @@ public class MainActivity extends AppCompatActivity {
                 }
             } catch (Exception e) {
                 e.printStackTrace();
+            }
+        }
+
+        @JavascriptInterface
+        public boolean hasMediaPermission() {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                return ContextCompat.checkSelfPermission(MainActivity.this, Manifest.permission.READ_MEDIA_AUDIO) == PackageManager.PERMISSION_GRANTED;
+            } else {
+                return ContextCompat.checkSelfPermission(MainActivity.this, Manifest.permission.READ_EXTERNAL_STORAGE) == PackageManager.PERMISSION_GRANTED;
+            }
+        }
+
+        @JavascriptInterface
+        public void requestMediaPermission() {
+            runOnUiThread(() -> {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                    ActivityCompat.requestPermissions(MainActivity.this, new String[]{Manifest.permission.READ_MEDIA_AUDIO}, STORAGE_PERM_REQ);
+                } else {
+                    ActivityCompat.requestPermissions(MainActivity.this, new String[]{Manifest.permission.READ_EXTERNAL_STORAGE}, STORAGE_PERM_REQ);
+                }
+            });
+        }
+
+        @JavascriptInterface
+        public String scanMediaStoreAudio() {
+            JSONArray tracks = new JSONArray();
+            if (!hasMediaPermission()) {
+                return tracks.toString();
+            }
+
+            try {
+                Uri contentUri = MediaStore.Audio.Media.EXTERNAL_CONTENT_URI;
+                String[] projection = new String[]{
+                        MediaStore.Audio.Media._ID,
+                        MediaStore.Audio.Media.TITLE,
+                        MediaStore.Audio.Media.ARTIST,
+                        MediaStore.Audio.Media.ALBUM,
+                        MediaStore.Audio.Media.DURATION,
+                        MediaStore.Audio.Media.SIZE,
+                        MediaStore.Audio.Media.ALBUM_ID
+                };
+                String selection = MediaStore.Audio.Media.IS_MUSIC + " != 0";
+                String sortOrder = MediaStore.Audio.Media.TITLE + " ASC";
+
+                try (Cursor cursor = getContentResolver().query(contentUri, projection, selection, null, sortOrder)) {
+                    if (cursor != null) {
+                        int idCol = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media._ID);
+                        int titleCol = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.TITLE);
+                        int artistCol = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.ARTIST);
+                        int albumCol = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.ALBUM);
+                        int durationCol = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.DURATION);
+                        int sizeCol = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.SIZE);
+                        int albumIdCol = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.ALBUM_ID);
+
+                        while (cursor.moveToNext()) {
+                            long id = cursor.getLong(idCol);
+                            String title = cursor.getString(titleCol);
+                            String artist = cursor.getString(artistCol);
+                            String album = cursor.getString(albumCol);
+                            long durationMs = cursor.getLong(durationCol);
+                            long sizeBytes = cursor.getLong(sizeCol);
+                            long albumId = cursor.getLong(albumIdCol);
+
+                            if (durationMs < 1000) continue; // Ignore ringtones and tiny sound clips
+
+                            Uri trackUri = ContentUris.withAppendedId(MediaStore.Audio.Media.EXTERNAL_CONTENT_URI, id);
+
+                            JSONObject obj = new JSONObject();
+                            obj.put("id", "mediastore_" + id);
+                            obj.put("title", (title != null && !title.isEmpty()) ? title : "Unknown Title");
+                            obj.put("artist", (artist != null && !artist.equals("<unknown>")) ? artist : "Unknown Artist");
+                            obj.put("album", (album != null && !album.equals("<unknown>")) ? album : "Unknown Album");
+                            obj.put("duration", Math.round(durationMs / 1000.0));
+                            obj.put("size", sizeBytes);
+                            obj.put("albumId", albumId);
+                            obj.put("contentUri", trackUri.toString());
+
+                            tracks.put(obj);
+                        }
+                    }
+                }
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+
+            return tracks.toString();
+        }
+
+        @JavascriptInterface
+        public String readAudioBase64(String contentUriStr) {
+            try {
+                Uri uri = Uri.parse(contentUriStr);
+                try (InputStream is = getContentResolver().openInputStream(uri);
+                     ByteArrayOutputStream os = new ByteArrayOutputStream()) {
+                    if (is == null) return "";
+                    byte[] buffer = new byte[16384];
+                    int read;
+                    long total = 0;
+                    while ((read = is.read(buffer)) != -1) {
+                        os.write(buffer, 0, read);
+                        total += read;
+                        if (total > 35 * 1024 * 1024) break; // 35MB cap for base64 IPC
+                    }
+                    return Base64.encodeToString(os.toByteArray(), Base64.NO_WRAP);
+                }
+            } catch (Exception e) {
+                e.printStackTrace();
+                return "";
+            }
+        }
+
+        @JavascriptInterface
+        public boolean isNetworkConnected() {
+            try {
+                ConnectivityManager cm = (ConnectivityManager) getSystemService(Context.CONNECTIVITY_SERVICE);
+                if (cm == null) return false;
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                    android.net.Network net = cm.getActiveNetwork();
+                    if (net == null) return false;
+                    NetworkCapabilities caps = cm.getNetworkCapabilities(net);
+                    return caps != null && (caps.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) ||
+                            caps.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR) ||
+                            caps.hasTransport(NetworkCapabilities.TRANSPORT_ETHERNET));
+                } else {
+                    NetworkInfo ni = cm.getActiveNetworkInfo();
+                    return ni != null && ni.isConnected();
+                }
+            } catch (Exception e) {
+                return true;
             }
         }
     }
@@ -106,6 +259,34 @@ public class MainActivity extends AppCompatActivity {
             }
 
             @Override
+            public WebResourceResponse shouldInterceptRequest(WebView view, WebResourceRequest request) {
+                Uri url = request.getUrl();
+                if (url != null) {
+                    // Intercept content:// or https://pioneer.local/media?uri=... for local audio playback
+                    boolean isContentScheme = "content".equals(url.getScheme());
+                    boolean isLocalMediaProxy = "pioneer.local".equals(url.getHost()) && "/media".equals(url.getPath());
+
+                    if (isContentScheme || isLocalMediaProxy) {
+                        try {
+                            Uri targetUri = isContentScheme ? url : Uri.parse(url.getQueryParameter("uri"));
+                            InputStream is = getContentResolver().openInputStream(targetUri);
+                            if (is != null) {
+                                String mime = getContentResolver().getType(targetUri);
+                                if (mime == null || mime.isEmpty()) mime = "audio/mpeg";
+                                Map<String, String> headers = new HashMap<>();
+                                headers.put("Access-Control-Allow-Origin", "*");
+                                headers.put("Accept-Ranges", "bytes");
+                                return new WebResourceResponse(mime, "UTF-8", 200, "OK", headers, is);
+                            }
+                        } catch (Exception e) {
+                            e.printStackTrace();
+                        }
+                    }
+                }
+                return super.shouldInterceptRequest(view, request);
+            }
+
+            @Override
             public void onPageFinished(WebView view, String url) {
                 super.onPageFinished(view, url);
                 isPageLoaded = true;
@@ -165,14 +346,23 @@ public class MainActivity extends AppCompatActivity {
         if (url == null || webView == null) return;
         final String safeUrl = url.replace("\\", "\\\\").replace("'", "\\'");
         final String js = "(function() {" +
-            "  var u = '" + safeUrl + "';" +
-            "  if (window.spotifyAuthCallback) {" +
-            "    window.spotifyAuthCallback(u);" +
-            "  } else {" +
-            "    window.__pendingSpotifyCallbackUrl = u;" +
-            "  }" +
-            "})();";
+                "  var u = '" + safeUrl + "';" +
+                "  if (window.spotifyAuthCallback) {" +
+                "    window.spotifyAuthCallback(u);" +
+                "  } else {" +
+                "    window.__pendingSpotifyCallbackUrl = u;" +
+                "  }" +
+                "})();";
         webView.post(() -> webView.evaluateJavascript(js, null));
+    }
+
+    @Override
+    public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+        if (requestCode == STORAGE_PERM_REQ) {
+            boolean granted = grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED;
+            webView.post(() -> webView.evaluateJavascript("if (window.onMediaPermissionResult) window.onMediaPermissionResult(" + granted + ");", null));
+        }
     }
 
     @Override

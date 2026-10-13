@@ -5,7 +5,6 @@ class SpotifyPKCEService {
     this.configKey = 'pioneer_spotify_config';
     
     // Default Configuration
-    // Users can supply their own Client ID from developer.spotify.com/dashboard
     const savedConfig = this.loadConfig();
     this.clientId = savedConfig.clientId || 'YOUR_SPOTIFY_CLIENT_ID';
     this.redirectUri = savedConfig.redirectUri || 'pioneerdsp://callback';
@@ -17,13 +16,16 @@ class SpotifyPKCEService {
       'user-read-currently-playing',
       'playlist-read-private',
       'playlist-read-collaborative',
-      'user-library-read'
+      'user-library-read',
+      'user-read-playback-position'
     ].join(' ');
 
     this.accessToken = null;
     this.refreshToken = null;
     this.expiresAt = 0;
     this.userProfile = null;
+    this.devices = [];
+    this.activeDeviceId = null;
 
     this.restoreSession();
   }
@@ -32,7 +34,8 @@ class SpotifyPKCEService {
   loadConfig() {
     try {
       const data = localStorage.getItem(this.configKey);
-      return data ? JSON.parse(data) : {};
+      if (!data) return {};
+      return JSON.parse(data);
     } catch(e) {
       return {};
     }
@@ -49,19 +52,32 @@ class SpotifyPKCEService {
     }));
   }
 
-  // Session Restoration & Token Persistence
+  // Session Restoration & Safe Token Persistence (Defensive against raw string tokens)
   restoreSession() {
     try {
       const raw = localStorage.getItem(this.storageKey);
-      if (raw) {
-        const data = JSON.parse(raw);
+      if (!raw) return;
+
+      let data = null;
+      try {
+        data = JSON.parse(raw);
+      } catch(err) {
+        // If raw was accidentally stored as an unquoted token string (e.g. "CKDPLRNDbL...")
+        if (typeof raw === 'string' && raw.length > 20) {
+          this.accessToken = raw;
+          this.expiresAt = Date.now() + 3600000;
+          return;
+        }
+      }
+
+      if (data && typeof data === 'object') {
         this.accessToken = data.accessToken || null;
         this.refreshToken = data.refreshToken || null;
         this.expiresAt = data.expiresAt || 0;
         this.userProfile = data.userProfile || null;
       }
     } catch(e) {
-      console.warn('Failed to restore Spotify session:', e);
+      console.warn('Notice while restoring Spotify session:', e);
     }
   }
 
@@ -83,6 +99,8 @@ class SpotifyPKCEService {
     this.refreshToken = null;
     this.expiresAt = 0;
     this.userProfile = null;
+    this.devices = [];
+    this.activeDeviceId = null;
     localStorage.removeItem(this.storageKey);
   }
 
@@ -164,31 +182,25 @@ class SpotifyPKCEService {
       let error = null;
       let state = null;
 
-      // Method 1: Standard URL parser
+      // Tier 1: Standard URL parser
       try {
         const urlObj = new URL(callbackUrl);
         code = urlObj.searchParams.get('code');
         error = urlObj.searchParams.get('error');
         state = urlObj.searchParams.get('state');
-      } catch(e) {
-        console.warn('Standard URL parser on callback URL had notice, falling back:', e);
-      }
+      } catch(e) {}
 
-      // Method 2: Query string parser for custom scheme URIs
+      // Tier 2: Query string parser for custom scheme URIs
       if (!code && !error) {
         let queryString = '';
         const qIndex = callbackUrl.indexOf('?');
         if (qIndex !== -1) {
           queryString = callbackUrl.substring(qIndex + 1);
           const hashIndex = queryString.indexOf('#');
-          if (hashIndex !== -1) {
-            queryString = queryString.substring(0, hashIndex);
-          }
+          if (hashIndex !== -1) queryString = queryString.substring(0, hashIndex);
         } else {
           const hashIndex = callbackUrl.indexOf('#');
-          if (hashIndex !== -1) {
-            queryString = callbackUrl.substring(hashIndex + 1);
-          }
+          if (hashIndex !== -1) queryString = callbackUrl.substring(hashIndex + 1);
         }
 
         if (queryString) {
@@ -199,7 +211,7 @@ class SpotifyPKCEService {
         }
       }
 
-      // Method 3: Regex fallbacks
+      // Tier 3: Regex fallbacks
       if (!code) {
         const matchCode = callbackUrl.match(/[?&#]code=([^&#]+)/);
         if (matchCode) code = decodeURIComponent(matchCode[1]);
@@ -215,7 +227,7 @@ class SpotifyPKCEService {
 
       if (error) {
         if (error === 'access_denied') {
-          throw new Error('Authorization was cancelled or denied by user.');
+          throw new Error('Spotify authorization was cancelled or denied by user.');
         }
         throw new Error(`Spotify Authorization Error: ${error}`);
       }
@@ -249,7 +261,14 @@ class SpotifyPKCEService {
         })
       });
 
-      const data = await response.json();
+      const responseText = await response.text();
+      let data = {};
+      try {
+        data = JSON.parse(responseText);
+      } catch(e) {
+        throw new Error(`Token exchange returned non-JSON: ${responseText.substring(0, 150)}`);
+      }
+
       if (!response.ok || data.error) {
         const errorDetail = data.error_description || data.error || 'Token exchange failed';
         throw new Error(`Token Exchange Failed: ${errorDetail}`);
@@ -263,8 +282,9 @@ class SpotifyPKCEService {
       localStorage.removeItem('spotify_pkce_verifier');
       localStorage.removeItem('spotify_pkce_state');
 
-      // Fetch user profile
+      // Fetch user profile and available playback devices
       await this.fetchUserProfile();
+      await this.getAvailableDevices();
       this.saveSession();
 
       return { success: true, profile: this.userProfile };
@@ -294,7 +314,15 @@ class SpotifyPKCEService {
         })
       });
 
-      const data = await response.json();
+      const responseText = await response.text();
+      let data = {};
+      try {
+        data = JSON.parse(responseText);
+      } catch(e) {
+        this.clearSession();
+        throw new Error('Token refresh response was not valid JSON.');
+      }
+
       if (!response.ok || data.error) {
         this.clearSession();
         throw new Error(data.error_description || 'Token refresh failed.');
@@ -313,7 +341,7 @@ class SpotifyPKCEService {
     }
   }
 
-  // Authorized API Request Wrapper with Auto-Refresh & Rate Limit Handling
+  // Authorized API Request Wrapper with Safe Non-JSON / HTTP Error / Rate Limit Handling
   async apiRequest(endpoint, method = 'GET', body = null) {
     if (!this.accessToken) {
       throw new Error('NOT_AUTHENTICATED: Please connect your Spotify account.');
@@ -333,15 +361,13 @@ class SpotifyPKCEService {
       options.body = JSON.stringify(body);
     }
 
-    const response = await fetch(`https://api.spotify.com/v1${endpoint}`, options);
+    let response = await fetch(`https://api.spotify.com/v1${endpoint}`, options);
 
     if (response.status === 401) {
       // Token expired mid-flight; attempt refresh once
       await this.refreshAccessToken();
       headers['Authorization'] = `Bearer ${this.accessToken}`;
-      const retryResp = await fetch(`https://api.spotify.com/v1${endpoint}`, { method, headers, body: options.body });
-      if (retryResp.status === 204) return null;
-      return retryResp.json();
+      response = await fetch(`https://api.spotify.com/v1${endpoint}`, { method, headers, body: options.body });
     }
 
     if (response.status === 429) {
@@ -349,20 +375,49 @@ class SpotifyPKCEService {
       throw new Error(`Spotify Rate Limit: Please wait ${retryAfter} seconds.`);
     }
 
+    // HTTP 204 No Content: Typical for successful playback commands (play, pause, seek, volume)
     if (response.status === 204) {
-      return null; // Empty success
+      return null;
     }
 
-    const data = await response.json();
+    const responseText = await response.text();
+    let data = null;
+    if (responseText && responseText.trim().length > 0) {
+      try {
+        data = JSON.parse(responseText);
+      } catch(parseErr) {
+        // Plain text response
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}: ${responseText.substring(0, 150)}`);
+        }
+        return responseText;
+      }
+    }
+
     if (!response.ok) {
-      const message = data.error ? data.error.message : 'Spotify API request failed';
+      let message = `HTTP ${response.status} Error`;
+      if (data && data.error) {
+        if (typeof data.error === 'string') {
+          message = data.error;
+        } else if (data.error.message) {
+          message = data.error.message;
+        }
+      }
+
+      // Map common Spotify Web API error conditions to actionable advice
+      if (response.status === 404 && message.toLowerCase().includes('device')) {
+        message = 'Player command failed: No active device found. Launch Spotify on your phone, PC, or speaker, or select a device below.';
+      } else if (response.status === 403) {
+        message = 'Spotify restriction: Spotify Premium is required for remote playback control, or action forbidden on this track.';
+      }
+
       throw new Error(message);
     }
 
     return data;
   }
 
-  // Official Web API Endpoints
+  // Official Web API Endpoints: User Profile
   async fetchUserProfile() {
     const profile = await this.apiRequest('/me');
     let followersCount = 0;
@@ -382,25 +437,81 @@ class SpotifyPKCEService {
     return this.userProfile;
   }
 
-  async getUserPlaylists(limit = 20) {
+  // Official Web API Endpoints: Devices Management
+  async getAvailableDevices() {
+    try {
+      const data = await this.apiRequest('/me/player/devices');
+      this.devices = (data && data.devices) ? data.devices : [];
+      const activeDev = this.devices.find(d => d.is_active);
+      if (activeDev) {
+        this.activeDeviceId = activeDev.id;
+      } else if (this.devices.length > 0 && !this.activeDeviceId) {
+        this.activeDeviceId = this.devices[0].id;
+      }
+      return this.devices;
+    } catch(e) {
+      console.warn('Failed to fetch Spotify devices:', e);
+      return this.devices || [];
+    }
+  }
+
+  async transferPlayback(deviceId, play = false) {
+    if (!deviceId) throw new Error('Target device ID is required.');
+    this.activeDeviceId = deviceId;
+    return await this.apiRequest('/me/player', 'PUT', {
+      device_ids: [deviceId],
+      play: play
+    });
+  }
+
+  // Playlists & Tracks
+  async getUserPlaylists(limit = 30) {
     const data = await this.apiRequest(`/me/playlists?limit=${limit}`);
-    return data.items || [];
+    return (data && data.items) ? data.items : [];
   }
 
-  async getPlaylistTracks(playlistId, limit = 30) {
+  async getPlaylistTracks(playlistId, limit = 50) {
     const data = await this.apiRequest(`/playlists/${playlistId}/tracks?limit=${limit}`);
-    return data.items || [];
+    return (data && data.items) ? data.items : [];
   }
 
+  // Spotify Search API
+  async search(query, types = 'track,artist') {
+    if (!query || !query.trim()) return { tracks: [], artists: [] };
+    const q = encodeURIComponent(query.trim());
+    const data = await this.apiRequest(`/search?q=${q}&type=${types}&limit=20`);
+    return {
+      tracks: (data && data.tracks && data.tracks.items) ? data.tracks.items : [],
+      artists: (data && data.artists && data.artists.items) ? data.artists.items : []
+    };
+  }
+
+  // Playback Control & State
   async getPlaybackState() {
-    return await this.apiRequest('/me/player');
+    const state = await this.apiRequest('/me/player');
+    if (state && state.device) {
+      this.activeDeviceId = state.device.id;
+    }
+    return state;
   }
 
-  async play(contextUri = null, uris = null) {
+  async play(contextUri = null, uris = null, deviceId = null) {
+    // If deviceId wasn't passed, check active or auto-detect
+    let targetDevice = deviceId || this.activeDeviceId;
+    if (!targetDevice) {
+      const devs = await this.getAvailableDevices();
+      if (devs && devs.length > 0) {
+        targetDevice = devs[0].id;
+        this.activeDeviceId = targetDevice;
+      }
+    }
+
+    const query = targetDevice ? `?device_id=${encodeURIComponent(targetDevice)}` : '';
     const body = {};
     if (contextUri) body.context_uri = contextUri;
     if (uris) body.uris = uris;
-    return await this.apiRequest('/me/player/play', 'PUT', Object.keys(body).length > 0 ? body : null);
+
+    return await this.apiRequest(`/me/player/play${query}`, 'PUT', Object.keys(body).length > 0 ? body : null);
   }
 
   async pause() {
@@ -416,11 +527,21 @@ class SpotifyPKCEService {
   }
 
   async setVolume(volumePercent) {
-    return await this.apiRequest(`/me/player/volume?volume_percent=${Math.round(volumePercent)}`, 'PUT');
+    const vol = Math.max(0, Math.min(100, Math.round(volumePercent)));
+    return await this.apiRequest(`/me/player/volume?volume_percent=${vol}`, 'PUT');
   }
 
   async seek(positionMs) {
     return await this.apiRequest(`/me/player/seek?position_ms=${Math.round(positionMs)}`, 'PUT');
+  }
+
+  async setShuffle(state = true) {
+    return await this.apiRequest(`/me/player/shuffle?state=${!!state}`, 'PUT');
+  }
+
+  async setRepeat(state = 'context') {
+    // 'track', 'context', or 'off'
+    return await this.apiRequest(`/me/player/repeat?state=${state}`, 'PUT');
   }
 
   logout() {
