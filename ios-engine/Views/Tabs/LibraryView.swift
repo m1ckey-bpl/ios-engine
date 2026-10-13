@@ -121,7 +121,7 @@ public struct LibraryView: View {
                         .listRowSeparatorTint(Color.white.opacity(0.08))
                     }
                     .onDelete { indexSet in
-                        libraryManager.removeSong(at: indexSet)
+                        libraryManager.deleteSong(at: indexSet)
                     }
                 }
                 .listStyle(.plain)

@@ -135,6 +135,10 @@ public final class MusicLibraryManager: ObservableObject {
         selectSong(at: currentSongIndex)
     }
     
+    public func removeSong(at indexSet: IndexSet) {
+        deleteSong(at: indexSet)
+    }
+    
     public func deleteSong(at indexSet: IndexSet) {
         let fileManager = FileManager.default
         for index in indexSet {
