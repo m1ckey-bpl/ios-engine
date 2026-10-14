@@ -169,7 +169,9 @@ public final class DirectStreamDSPPlayer: ObservableObject {
             let asset = AVURLAsset(url: url)
             let audioTracks = try await asset.loadTracks(withMediaType: .audio)
             guard requestGeneration == generation else { return }
-            if asset.hasProtectedContent {
+            let hasProtectedContent = try await asset.load(.hasProtectedContent)
+            guard requestGeneration == generation else { return }
+            if hasProtectedContent {
                 throw DirectStreamError.protectedContent
             }
             guard let audioTrack = audioTracks.first else {
@@ -336,7 +338,7 @@ private final class StreamAudioProcessingTap {
             }
         )
 
-        var outputTap: MTAudioProcessingTap?
+        var outputTap: Unmanaged<MTAudioProcessingTap>?
         let status = MTAudioProcessingTapCreate(
             kCFAllocatorDefault,
             &callbacks,
@@ -344,10 +346,11 @@ private final class StreamAudioProcessingTap {
             &outputTap
         )
         guard status == noErr, let outputTap else {
+            outputTap?.release()
             retainedState.release()
             throw DirectStreamError.tapCreationFailed
         }
-        tap = outputTap
+        tap = outputTap.takeRetainedValue()
     }
 }
 
