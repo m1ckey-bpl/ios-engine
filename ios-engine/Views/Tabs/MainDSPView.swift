@@ -229,11 +229,11 @@ Text((dspEngine.isPlaying || streamPlayer.isPlaying) ? "PLAYBACK ACTIVE" : "STAN
                         }
 
                         VStack(alignment: .leading, spacing: 3) {
-                            Text(streamPlayer.isActiveOrLoading ? "Authorized direct audio stream" : dspEngine.trackTitle)
+                            Text(streamPlayer.isActiveOrLoading ? streamPlayer.currentDisplayTitle : dspEngine.trackTitle)
                                 .font(.system(size: 13, weight: .bold))
                                 .foregroundColor(.white)
                                 .lineLimit(1)
-                            Text(streamPlayer.isActiveOrLoading ? (streamPlayer.sourceLabel ?? "Connecting to authorized source…") : dspEngine.trackArtist)
+                            Text(streamPlayer.isActiveOrLoading ? streamPlayer.currentDisplayArtist : dspEngine.trackArtist)
                                 .font(.system(size: 11))
                                 .foregroundColor(PioneerColors.textMuted)
                                 .lineLimit(1)
@@ -280,6 +280,8 @@ Text((dspEngine.isPlaying || streamPlayer.isPlaying) ? "PLAYBACK ACTIVE" : "STAN
                                 .contentShape(Rectangle())
                         }
                         .buttonStyle(.plain)
+                        .disabled(streamPlayer.isActiveOrLoading)
+                        .opacity(streamPlayer.isActiveOrLoading ? 0.35 : 1)
                         .accessibilityLabel("Previous track")
 
                         Spacer(minLength: 0)
@@ -289,17 +291,17 @@ Text((dspEngine.isPlaying || streamPlayer.isPlaying) ? "PLAYBACK ACTIVE" : "STAN
                                 Circle()
                                     .fill(PioneerColors.amberOrange)
                                     .frame(width: 48, height: 48)
-                                Image(systemName: (dspEngine.isPlaying || streamPlayer.isPlaying) ? "pause.fill" : "play.fill")
+                                Image(systemName: (dspEngine.isPlaying || streamPlayer.isPlaybackRequested) ? "pause.fill" : "play.fill")
                                     .font(.system(size: 18, weight: .bold))
                                     .foregroundColor(.black)
                                     .contentTransition(.symbolEffect(.replace))
                             }
                             .shadow(color: PioneerColors.amberOrange.opacity(0.43), radius: 8)
-                            .scaleEffect((dspEngine.isPlaying || streamPlayer.isPlaying) ? 1.04 : 1.0)
-                            .animation(.spring(response: 0.32, dampingFraction: 0.62), value: streamPlayer.isPlaying || dspEngine.isPlaying)
+                            .scaleEffect((dspEngine.isPlaying || streamPlayer.isPlaybackRequested) ? 1.04 : 1.0)
+                            .animation(.spring(response: 0.32, dampingFraction: 0.62), value: streamPlayer.isPlaybackRequested || dspEngine.isPlaying)
                         }
                         .buttonStyle(.plain)
-                        .accessibilityLabel((dspEngine.isPlaying || streamPlayer.isPlaying) ? "Pause" : "Play")
+                        .accessibilityLabel((dspEngine.isPlaying || streamPlayer.isPlaybackRequested) ? "Pause" : "Play")
 
                         Spacer(minLength: 0)
 
@@ -311,6 +313,8 @@ Text((dspEngine.isPlaying || streamPlayer.isPlaying) ? "PLAYBACK ACTIVE" : "STAN
                                 .contentShape(Rectangle())
                         }
                         .buttonStyle(.plain)
+                        .disabled(streamPlayer.isActiveOrLoading)
+                        .opacity(streamPlayer.isActiveOrLoading ? 0.35 : 1)
                         .accessibilityLabel("Next track")
 
                         Spacer(minLength: 0)

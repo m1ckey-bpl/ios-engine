@@ -2,7 +2,7 @@ name: Build DSP ENGINE iOS IPA
 
 on:
   push:
-    branches: [ "main", "arena/dsp-engine-ios-fix-20261014" ]
+    branches: [ "main", "arena/**" ]
   workflow_dispatch:
 
 permissions:
@@ -54,6 +54,7 @@ jobs:
 
             - DSP processing for compatible local, non-DRM audio files.
             - Real-time DSP for user-supplied, authorized direct HTTPS audio URLs; no audio is saved by the stream player.
+            - Read-only open-license music discovery from selected Internet Archive collections, streamed through the same DSP tap after source-record review and user authorization.
             - YouTube Data API metadata search only. No embedded YouTube player, audio extraction, download, or MP3 conversion.
             - Spotify UI/service removed; protected third-party playback is not captured or processed.
             - The included IPA is unsigned and must be signed with a valid Apple identity/profile or a trusted sideloading workflow before installation.

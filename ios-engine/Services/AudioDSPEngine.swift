@@ -683,18 +683,29 @@ public final class AudioDSPEngine: ObservableObject {
             return .success
         }
         center.nextTrackCommand.addTarget { _ in
-            Task { @MainActor in MusicLibraryManager.shared.playNext() }
+            Task { @MainActor in
+                guard !DirectStreamDSPPlayer.shared.isActiveOrLoading else { return }
+                MusicLibraryManager.shared.playNext()
+            }
             return .success
         }
         center.previousTrackCommand.addTarget { _ in
-            Task { @MainActor in MusicLibraryManager.shared.playPrevious() }
+            Task { @MainActor in
+                guard !DirectStreamDSPPlayer.shared.isActiveOrLoading else { return }
+                MusicLibraryManager.shared.playPrevious()
+            }
             return .success
         }
         center.changePlaybackPositionCommand.addTarget { [weak self] event in
             guard let position = event as? MPChangePlaybackPositionCommandEvent else { return .commandFailed }
             Task { @MainActor [weak self] in
                 guard let self else { return }
-                self.seek(to: position.positionTime / max(1.0, self.totalDuration))
+                let stream = DirectStreamDSPPlayer.shared
+                if stream.isActiveOrLoading {
+                    stream.seek(toFraction: position.positionTime / max(1.0, stream.duration))
+                } else {
+                    self.seek(to: position.positionTime / max(1.0, self.totalDuration))
+                }
             }
             return .success
         }
@@ -975,7 +986,7 @@ public final class AudioDSPEngine: ObservableObject {
     }
 
     public func seek(to progress: Double) {
-        if DirectStreamDSPPlayer.shared.isActive {
+        if DirectStreamDSPPlayer.shared.isActiveOrLoading {
             DirectStreamDSPPlayer.shared.seek(toFraction: progress)
             return
         }

@@ -8,6 +8,11 @@ private enum LibrarySort: String, CaseIterable, Identifiable {
     var id: String { rawValue }
 }
 
+private enum LibrarySearchMode: String, CaseIterable, Hashable {
+    case youtube = "YOUTUBE • METADATA"
+    case openAudio = "OPEN-LICENSE AUDIO"
+}
+
 public struct LibraryView: View {
     @ObservedObject private var libraryManager = MusicLibraryManager.shared
     @ObservedObject private var dspEngine = AudioDSPEngine.shared
@@ -16,6 +21,7 @@ public struct LibraryView: View {
 
     @State private var showMultiPicker = false
     @State private var selectedSegment = 0
+    @State private var searchMode: LibrarySearchMode = .youtube
     @State private var ytSearchQuery = ""
     @State private var apiKeyDraft = ""
     @State private var libraryQuery = ""
@@ -67,7 +73,7 @@ public struct LibraryView: View {
             Group {
                 switch selectedSegment {
                 case 0: localLibrary
-                case 1: youtubeSearch
+                case 1: searchHub
                 default: downloadsView
                 }
             }
@@ -249,6 +255,24 @@ public struct LibraryView: View {
                     .foregroundColor(PioneerColors.amberOrange)
             }
             .frame(width: 42, height: 42)
+        }
+    }
+
+    private var searchHub: some View {
+        VStack(spacing: 0) {
+            Picker("Search source", selection: $searchMode) {
+                Text("YOUTUBE • METADATA").tag(LibrarySearchMode.youtube)
+                Text("OPEN-LICENSE AUDIO").tag(LibrarySearchMode.openAudio)
+            }
+            .pickerStyle(.segmented)
+            .padding(.horizontal, 14)
+            .padding(.top, 7)
+            .padding(.bottom, 5)
+
+            Group {
+                if searchMode == .youtube { youtubeSearch }
+                else { OpenAudioSearchView() }
+            }
         }
     }
 

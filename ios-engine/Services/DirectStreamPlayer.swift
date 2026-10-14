@@ -15,10 +15,13 @@ public final class DirectStreamDSPPlayer: ObservableObject {
 
     @Published public var urlText: String = ""
     @Published public private(set) var isLoading = false
+    @Published public private(set) var isBuffering = false
     @Published public private(set) var isPlaying = false
     @Published public private(set) var currentTime: TimeInterval = 0
     @Published public private(set) var duration: TimeInterval = 0
     @Published public private(set) var sourceLabel: String?
+    @Published public private(set) var streamTitle: String?
+    @Published public private(set) var streamArtist: String?
     @Published public private(set) var errorMessage: String?
     @Published public var bassGainDB: Float = 0 {
         didSet { tapState?.setControls(bassGainDB: bassGainDB, roomMix: roomMix) }
@@ -34,6 +37,7 @@ public final class DirectStreamDSPPlayer: ObservableObject {
     private var tapState: StreamTapState?
     private var periodicObserver: Any?
     private var itemStatusObservation: NSKeyValueObservation?
+    private var timeControlObservation: NSKeyValueObservation?
     private var generation = 0
     private var settingsSubscriptions = Set<AnyCancellable>()
     private var sessionObservers: [NSObjectProtocol] = []
@@ -43,6 +47,11 @@ public final class DirectStreamDSPPlayer: ObservableObject {
 
     public var isActive: Bool { player != nil && currentItem != nil }
     public var isActiveOrLoading: Bool { isActive || isLoading }
+    public var isPlaybackRequested: Bool {
+        shouldPlayWhenReady && (isPlaying || isBuffering || isLoading)
+    }
+    public var currentDisplayTitle: String { streamTitle ?? "Authorized direct audio stream" }
+    public var currentDisplayArtist: String { streamArtist ?? sourceLabel ?? "Direct authorized stream" }
 
     private let blockedDomains: Set<String> = [
         "youtube.com", "youtu.be", "youtube-nocookie.com", "googlevideo.com",
@@ -99,23 +108,29 @@ public final class DirectStreamDSPPlayer: ObservableObject {
         )
     }
 
-    public func start(authorized: Bool) {
+    public func start(authorized: Bool, title: String? = nil, artist: String? = nil) {
         guard authorized else {
             errorMessage = "Confirm that you’re authorized to stream this source before connecting."
             return
         }
 
         let text = urlText.trimmingCharacters(in: .whitespacesAndNewlines)
+        let replacingActiveStream = isActiveOrLoading
         generation &+= 1
         let requestGeneration = generation
         tearDownCurrentPlayer()
         isLoading = false
+        isBuffering = false
         isPlaying = false
         shouldPlayWhenReady = false
         currentTime = 0
         duration = 0
         sourceLabel = nil
+        streamTitle = nil
+        streamArtist = nil
         errorMessage = nil
+        if replacingActiveStream { MPNowPlayingInfoCenter.default().nowPlayingInfo = nil }
+        updateRemoteSkipCommands()
 
         guard let url = URL(string: text) else {
             errorMessage = "Enter a valid HTTPS link to a direct, authorized audio resource."
@@ -126,18 +141,24 @@ public final class DirectStreamDSPPlayer: ObservableObject {
             return
         }
 
+        sourceLabel = url.host
+        streamTitle = cleanedMetadata(title)
+        streamArtist = cleanedMetadata(artist)
         AudioDSPEngine.shared.stopLocalPlayback()
+        MPNowPlayingInfoCenter.default().nowPlayingInfo = nil
         shouldPlayWhenReady = true
         isLoading = true
+        updateRemoteSkipCommands()
         Task { await prepareAndPlay(url: url, generation: requestGeneration) }
     }
 
     public func togglePlayback() {
-        isPlaying ? pause() : resume()
+        isPlaybackRequested ? pause() : resume()
     }
 
     public func pause() {
         shouldPlayWhenReady = false
+        isBuffering = false
         guard let player else { return }
         player.pause()
         isPlaying = false
@@ -158,14 +179,17 @@ public final class DirectStreamDSPPlayer: ObservableObject {
                 Task { @MainActor [weak self, weak player] in
                     guard let self, let player, self.shouldPlayWhenReady else { return }
                     player.play()
-                    self.isPlaying = true
+                    self.isPlaying = player.timeControlStatus == .playing
+                    self.isBuffering = !self.isLoading
+                        && player.timeControlStatus == .waitingToPlayAtSpecifiedRate
                     self.updateNowPlayingInfo()
                 }
             }
             return
         }
         player.play()
-        isPlaying = true
+        isPlaying = player.timeControlStatus == .playing
+        isBuffering = !isLoading && player.timeControlStatus == .waitingToPlayAtSpecifiedRate
         updateNowPlayingInfo()
     }
 
@@ -179,12 +203,16 @@ public final class DirectStreamDSPPlayer: ObservableObject {
         shouldPlayWhenReady = false
         tearDownCurrentPlayer()
         isLoading = false
+        isBuffering = false
         isPlaying = false
         currentTime = 0
         duration = 0
         sourceLabel = nil
+        streamTitle = nil
+        streamArtist = nil
         errorMessage = nil
         MPNowPlayingInfoCenter.default().nowPlayingInfo = nil
+        updateRemoteSkipCommands()
     }
 
     public func seek(toFraction fraction: Double) {
@@ -200,6 +228,13 @@ public final class DirectStreamDSPPlayer: ObservableObject {
 
     public func setRoomMix(_ value: Float) {
         roomMix = min(0.45, max(0, value))
+    }
+
+    private func cleanedMetadata(_ value: String?) -> String? {
+        guard let value else { return nil }
+        let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return nil }
+        return String(trimmed.prefix(160))
     }
 
     private func validationError(for url: URL) -> String? {
@@ -279,7 +314,7 @@ public final class DirectStreamDSPPlayer: ObservableObject {
             observe(item: item, player: streamPlayer, generation: requestGeneration)
             if shouldPlayWhenReady {
                 streamPlayer.play()
-                isPlaying = true
+                isPlaying = streamPlayer.timeControlStatus == .playing
             } else {
                 streamPlayer.pause()
                 isPlaying = false
@@ -288,8 +323,15 @@ public final class DirectStreamDSPPlayer: ObservableObject {
         } catch {
             guard requestGeneration == generation else { return }
             isLoading = false
+            isBuffering = false
             isPlaying = false
+            shouldPlayWhenReady = false
+            sourceLabel = nil
+            streamTitle = nil
+            streamArtist = nil
+            MPNowPlayingInfoCenter.default().nowPlayingInfo = nil
             errorMessage = error.localizedDescription
+            updateRemoteSkipCommands()
         }
     }
 
@@ -306,13 +348,34 @@ public final class DirectStreamDSPPlayer: ObservableObject {
                     self.isLoading = false
                     if self.shouldPlayWhenReady {
                         player.play()
-                        self.isPlaying = true
+                        self.isPlaying = player.timeControlStatus == .playing
                     } else {
                         player.pause()
                         self.isPlaying = false
                     }
+                    self.isBuffering = self.shouldPlayWhenReady
+                        && player.timeControlStatus == .waitingToPlayAtSpecifiedRate
                     self.updateNowPlayingInfo()
                 }
+            }
+        }
+
+        timeControlObservation = player.observe(\.timeControlStatus, options: [.initial, .new]) { [weak self] observedPlayer, _ in
+            let status = observedPlayer.timeControlStatus
+            Task { @MainActor [weak self] in
+                guard let self, self.generation == requestGeneration else { return }
+                if status == .playing {
+                    self.isLoading = false
+                    self.isBuffering = false
+                    self.isPlaying = true
+                } else if status == .waitingToPlayAtSpecifiedRate {
+                    self.isPlaying = false
+                    self.isBuffering = !self.isLoading
+                } else if status == .paused {
+                    self.isPlaying = false
+                    self.isBuffering = false
+                }
+                self.updateNowPlayingInfo()
             }
         }
 
@@ -334,6 +397,8 @@ public final class DirectStreamDSPPlayer: ObservableObject {
                     self.isLoading = false
                 }
                 self.isPlaying = player.timeControlStatus == .playing
+                self.isBuffering = !self.isLoading
+                    && player.timeControlStatus == .waitingToPlayAtSpecifiedRate
                 self.updateNowPlayingInfo()
             }
         }
@@ -342,13 +407,20 @@ public final class DirectStreamDSPPlayer: ObservableObject {
     private func updateNowPlayingInfo() {
         guard isActive else { return }
         var info: [String: Any] = [
-            MPMediaItemPropertyTitle: sourceLabel ?? "Authorized audio stream",
-            MPMediaItemPropertyArtist: "Direct authorized stream",
+            MPMediaItemPropertyTitle: currentDisplayTitle,
+            MPMediaItemPropertyArtist: currentDisplayArtist,
             MPNowPlayingInfoPropertyElapsedPlaybackTime: currentTime,
             MPNowPlayingInfoPropertyPlaybackRate: isPlaying ? 1.0 : 0.0
         ]
         if duration > 0 { info[MPMediaItemPropertyPlaybackDuration] = duration }
         MPNowPlayingInfoCenter.default().nowPlayingInfo = info
+    }
+
+    private func updateRemoteSkipCommands() {
+        let commands = MPRemoteCommandCenter.shared()
+        let canSkipLocalTracks = !isActiveOrLoading
+        commands.nextTrackCommand.isEnabled = canSkipLocalTracks
+        commands.previousTrackCommand.isEnabled = canSkipLocalTracks
     }
 
     private func observeAudioSessionChanges() {
@@ -375,8 +447,9 @@ public final class DirectStreamDSPPlayer: ObservableObject {
         guard let rawType = notification.userInfo?[AVAudioSessionInterruptionTypeKey] as? UInt,
               let type = AVAudioSession.InterruptionType(rawValue: rawType) else { return }
         if type == .began {
-            wasPlayingBeforeInterruption = isPlaying
-            if isPlaying { pause() }
+            let intendedToPlay = shouldPlayWhenReady && (isPlaying || isBuffering || isLoading)
+            wasPlayingBeforeInterruption = intendedToPlay
+            if intendedToPlay { pause() }
         } else if type == .ended {
             let rawOptions = notification.userInfo?[AVAudioSessionInterruptionOptionKey] as? UInt ?? 0
             let options = AVAudioSession.InterruptionOptions(rawValue: rawOptions)
@@ -391,7 +464,7 @@ public final class DirectStreamDSPPlayer: ObservableObject {
         guard reason == .oldDeviceUnavailable,
               let previous = notification.userInfo?[AVAudioSessionRouteChangePreviousRouteKey] as? AVAudioSessionRouteDescription else { return }
         let personalOutputs: Set<AVAudioSession.Port> = [.headphones, .bluetoothA2DP, .bluetoothHFP, .bluetoothLE]
-        if previous.outputs.contains(where: { personalOutputs.contains($0.portType) }), isPlaying {
+        if previous.outputs.contains(where: { personalOutputs.contains($0.portType) }), isPlaybackRequested {
             pause()
         }
     }
@@ -402,6 +475,7 @@ public final class DirectStreamDSPPlayer: ObservableObject {
         }
         periodicObserver = nil
         itemStatusObservation = nil
+        timeControlObservation = nil
         player?.pause()
         player?.replaceCurrentItem(with: nil)
         player = nil

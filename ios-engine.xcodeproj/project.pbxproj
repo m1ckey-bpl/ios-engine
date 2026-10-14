@@ -15,6 +15,8 @@
 		10010006 /* DirectStreamPlayer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20010006 /* DirectStreamPlayer.swift */; };
 		10010007 /* MusicLibraryManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20010007 /* MusicLibraryManager.swift */; };
 		10010023 /* AuthorizedAudioDownloadManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20010023 /* AuthorizedAudioDownloadManager.swift */; };
+		10010024 /* InternetArchiveAudioCatalog.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20010024 /* InternetArchiveAudioCatalog.swift */; };
+		10010025 /* OpenAudioSearchView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20010025 /* OpenAudioSearchView.swift */; };
 		10010008 /* PioneerTheme.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20010008 /* PioneerTheme.swift */; };
 		10010009 /* SpectrumVisualizerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20010009 /* SpectrumVisualizerView.swift */; };
 		10010010 /* PioneerDialKnob.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20010010 /* PioneerDialKnob.swift */; };
@@ -40,6 +42,8 @@
 		20010006 /* DirectStreamPlayer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DirectStreamPlayer.swift; sourceTree = "<group>"; };
 		20010007 /* MusicLibraryManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MusicLibraryManager.swift; sourceTree = "<group>"; };
 		20010023 /* AuthorizedAudioDownloadManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthorizedAudioDownloadManager.swift; sourceTree = "<group>"; };
+		20010024 /* InternetArchiveAudioCatalog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InternetArchiveAudioCatalog.swift; sourceTree = "<group>"; };
+		20010025 /* OpenAudioSearchView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OpenAudioSearchView.swift; sourceTree = "<group>"; };
 		20010008 /* PioneerTheme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PioneerTheme.swift; sourceTree = "<group>"; };
 		20010009 /* SpectrumVisualizerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpectrumVisualizerView.swift; sourceTree = "<group>"; };
 		20010010 /* PioneerDialKnob.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PioneerDialKnob.swift; sourceTree = "<group>"; };
@@ -112,6 +116,7 @@
 				20010006 /* DirectStreamPlayer.swift */,
 				20010007 /* MusicLibraryManager.swift */,
 				20010023 /* AuthorizedAudioDownloadManager.swift */,
+				20010024 /* InternetArchiveAudioCatalog.swift */,
 			);
 			path = Services;
 			sourceTree = "<group>";
@@ -148,6 +153,7 @@
 				20010017 /* AcousticsView.swift */,
 				20010018 /* TimeAlignmentView.swift */,
 				20010019 /* DirectStreamView.swift */,
+				20010025 /* OpenAudioSearchView.swift */,
 			);
 			path = Tabs;
 			sourceTree = "<group>";
@@ -229,6 +235,8 @@
 				10010006 /* DirectStreamPlayer.swift in Sources */,
 				10010007 /* MusicLibraryManager.swift in Sources */,
 				10010023 /* AuthorizedAudioDownloadManager.swift in Sources */,
+				10010024 /* InternetArchiveAudioCatalog.swift in Sources */,
+				10010025 /* OpenAudioSearchView.swift in Sources */,
 				10010008 /* PioneerTheme.swift in Sources */,
 				10010009 /* SpectrumVisualizerView.swift in Sources */,
 				10010010 /* PioneerDialKnob.swift in Sources */,

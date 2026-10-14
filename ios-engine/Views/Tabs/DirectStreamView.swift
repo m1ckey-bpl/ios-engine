@@ -18,7 +18,7 @@ public struct DirectStreamView: View {
                         .tracking(0.6)
                         .foregroundColor(PioneerColors.amberOrange)
 
-                    Text("Paste an HTTPS URL to an audio file hosted by a service that permits streaming. DSP is applied to decoded audio in real time; the app does not save a copy. Your authorization is a user confirmation, not an independent license check.")
+                    Text("Paste an HTTPS URL to an audio file hosted by a service that permits streaming, or choose a marked open-license result in Library → Search → Open-License Audio. DSP is applied to decoded audio in real time; the app does not save a copy. Authorization and catalog metadata are not independent legal verification.")
                         .font(.system(size: 12, weight: .medium))
                         .foregroundColor(PioneerColors.textMuted)
                         .fixedSize(horizontal: false, vertical: true)
@@ -207,7 +207,7 @@ public struct DirectStreamView: View {
                     .font(.system(size: 16, weight: .black, design: .rounded))
                     .tracking(0.9)
                     .foregroundColor(.white)
-                Text("REAL-TIME • USER-SUPPLIED SOURCE")
+                Text("REAL-TIME • AUTHORIZED AUDIO")
                     .font(.system(size: 8, weight: .bold, design: .monospaced))
                     .foregroundColor(PioneerColors.textMuted)
             }
@@ -226,19 +226,23 @@ public struct DirectStreamView: View {
                     .frame(width: 42, height: 42)
                     .background(PioneerColors.amberOrange.opacity(0.12), in: RoundedRectangle(cornerRadius: 11, style: .continuous))
                 VStack(alignment: .leading, spacing: 3) {
-                    Text(stream.isLoading ? "BUFFERING DIRECT STREAM" : "AUTHORIZED AUDIO STREAM")
+                    Text(stream.isLoading ? "CONNECTING TO STREAM" : stream.isBuffering ? "BUFFERING STREAM" : "AUTHORIZED AUDIO STREAM")
                         .font(.system(size: 10, weight: .black, design: .monospaced))
                         .foregroundColor(.white)
-                    Text(stream.sourceLabel ?? "Connecting…")
-                        .font(.system(size: 10, weight: .medium))
+                    Text(stream.currentDisplayTitle)
+                        .font(.system(size: 10, weight: .semibold))
                         .foregroundColor(PioneerColors.textMuted)
+                        .lineLimit(1)
+                    Text(stream.streamArtist ?? stream.sourceLabel ?? "Connecting…")
+                        .font(.system(size: 9, weight: .medium))
+                        .foregroundColor(PioneerColors.textMuted.opacity(0.82))
                         .lineLimit(1)
                 }
                 Spacer(minLength: 4)
                 Button {
                     stream.togglePlayback()
                 } label: {
-                    Image(systemName: stream.isPlaying ? "pause.fill" : "play.fill")
+                    Image(systemName: stream.isPlaybackRequested ? "pause.fill" : "play.fill")
                         .font(.system(size: 14, weight: .bold))
                         .foregroundColor(.black)
                         .frame(width: 38, height: 38)
@@ -264,7 +268,13 @@ public struct DirectStreamView: View {
                 }
                 .font(.system(size: 9, weight: .medium, design: .monospaced))
                 .foregroundColor(PioneerColors.textMuted)
-            } else if stream.isPlaying {
+            }
+            if stream.isBuffering {
+                Label("Network buffer refilling • playback resumes when data arrives", systemImage: "arrow.triangle.2.circlepath")
+                    .font(.system(size: 9, weight: .medium, design: .monospaced))
+                    .foregroundColor(PioneerColors.textMuted)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            } else if stream.duration <= 0 && stream.isPlaying {
                 Label("Streaming audio • no file is being saved", systemImage: "arrow.down.right.and.arrow.up.left")
                     .font(.system(size: 9, weight: .medium, design: .monospaced))
                     .foregroundColor(PioneerColors.textMuted)
