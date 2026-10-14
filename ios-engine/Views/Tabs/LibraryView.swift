@@ -9,7 +9,6 @@ public struct LibraryView: View {
     @State private var selectedSegment = 0
     @State private var ytSearchQuery = ""
     @State private var apiKeyDraft = ""
-    @State private var selectedYouTubeTrack: YouTubeTrackResult?
 
     public init() {
         _apiKeyDraft = State(initialValue: YouTubeMusicService.shared.customApiKey)
@@ -21,12 +20,12 @@ public struct LibraryView: View {
 
             Picker("Source", selection: $selectedSegment) {
                 Text("LOCAL (\(libraryManager.songs.count))").tag(0)
-                Text("YOUTUBE").tag(1)
+                Text("YOUTUBE SEARCH").tag(1)
             }
             .pickerStyle(.segmented)
             .padding(.horizontal, 16)
             .padding(.vertical, 10)
-            .background(.ultraThinMaterial)
+            .background(Color.clear)
 
             if selectedSegment == 0 {
                 localLibrary
@@ -46,11 +45,6 @@ public struct LibraryView: View {
             )
             .ignoresSafeArea()
         }
-        .sheet(item: $selectedYouTubeTrack) { track in
-            YouTubePlayerSheet(track: track)
-                .presentationDetents([.large])
-                .presentationDragIndicator(.visible)
-        }
         .onChange(of: ytService.customApiKey) { _, value in
             apiKeyDraft = value
         }
@@ -64,7 +58,7 @@ public struct LibraryView: View {
                     .font(.system(size: 15, weight: .black, design: .rounded))
                     .tracking(0.9)
                     .foregroundColor(.white)
-                Text("LOCAL DSP • OFFICIAL STREAMING LINKS")
+                Text("LOCAL AUDIO • YOUTUBE METADATA SEARCH")
                     .font(.system(size: 8, weight: .bold, design: .monospaced))
                     .foregroundColor(PioneerColors.textMuted)
             }
@@ -83,9 +77,9 @@ public struct LibraryView: View {
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 11)
-        .background(.ultraThinMaterial)
+        .background(.ultraThinMaterial.opacity(0.56))
         .overlay(alignment: .bottom) {
-            Rectangle().fill(PioneerColors.titaniumCardBorder).frame(height: 1)
+            Rectangle().fill(PioneerColors.titaniumCardBorder.opacity(0.7)).frame(height: 1)
         }
     }
 
@@ -94,7 +88,7 @@ public struct LibraryView: View {
             HStack(spacing: 8) {
                 Image(systemName: "waveform")
                     .foregroundColor(PioneerColors.amberOrange)
-                Text("Real-time DSP on compatible local audio • Lossless input keeps its source data; lossy detail can’t be restored.")
+                Text("Real-time DSP on compatible local audio. Lossless input keeps its source data; lossy detail can’t be restored.")
                     .font(.system(size: 11, weight: .medium))
                     .foregroundColor(PioneerColors.textMuted)
                 Spacer(minLength: 0)
@@ -141,7 +135,7 @@ public struct LibraryView: View {
                         .contentShape(Rectangle())
                     }
                     .buttonStyle(.plain)
-                    .listRowBackground(Color.white.opacity(0.035))
+                    .listRowBackground(Color.white.opacity(0.025))
                     .listRowSeparatorTint(Color.white.opacity(0.07))
                 }
                 .onDelete { indexSet in libraryManager.deleteSong(at: indexSet) }
@@ -170,21 +164,28 @@ public struct LibraryView: View {
                     .foregroundColor(PioneerColors.amberOrange)
                 }
                 .padding(10)
-                .background(Color.black.opacity(0.27), in: RoundedRectangle(cornerRadius: 11, style: .continuous))
-                Text("Stored in iOS Keychain. Restrict the key to YouTube Data API v3 and bundle ID com.pioneerdsp.app.")
+                .background(Color.black.opacity(0.19), in: RoundedRectangle(cornerRadius: 11, style: .continuous))
+
+                Text("Key stays in iOS Keychain. Restrict it to YouTube Data API v3 and bundle ID com.pioneerdsp.app.")
                     .font(.system(size: 9, weight: .medium))
                     .foregroundColor(PioneerColors.textMuted)
                     .frame(maxWidth: .infinity, alignment: .leading)
+
+                Label("METADATA ONLY — no in-app playback, audio extraction, downloads, or MP3 conversion.", systemImage: "info.circle.fill")
+                    .font(.system(size: 9, weight: .semibold))
+                    .foregroundColor(PioneerColors.cyberCyan)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .fixedSize(horizontal: false, vertical: true)
             }
             .padding(12)
-            .pioneerCard(cornerRadius: 14, highlight: PioneerColors.amberOrange.opacity(0.30))
+            .pioneerCard(cornerRadius: 14, highlight: PioneerColors.amberOrange.opacity(0.28))
             .padding(.horizontal, 14)
             .padding(.top, 10)
 
             HStack(spacing: 9) {
                 Image(systemName: "magnifyingglass")
                     .foregroundColor(PioneerColors.textMuted)
-                TextField("Search YouTube videos", text: $ytSearchQuery)
+                TextField("Search YouTube music metadata", text: $ytSearchQuery)
                     .foregroundColor(.white)
                     .font(.system(size: 13))
                     .textInputAutocapitalization(.never)
@@ -213,8 +214,8 @@ public struct LibraryView: View {
                 .buttonStyle(.plain)
             }
             .padding(10)
-            .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
-            .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).stroke(PioneerColors.titaniumCardBorder, lineWidth: 1))
+            .background(.ultraThinMaterial.opacity(0.50), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+            .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).stroke(PioneerColors.titaniumCardBorder.opacity(0.75), lineWidth: 1))
             .padding(.horizontal, 14)
 
             if ytService.isSearching {
@@ -243,53 +244,48 @@ public struct LibraryView: View {
             } else if ytService.searchResults.isEmpty {
                 Spacer()
                 VStack(spacing: 9) {
-                    Image(systemName: "play.rectangle.fill")
-                        .font(.system(size: 32))
-                        .foregroundColor(Color.red.opacity(0.82))
-                    Text("Find a video, play it in YouTube")
+                    Image(systemName: "text.magnifyingglass")
+                        .font(.system(size: 30))
+                        .foregroundColor(PioneerColors.amberOrange)
+                    Text("Search official video metadata")
                         .font(.system(size: 13, weight: .bold, design: .rounded))
-                        .foregroundColor(.white.opacity(0.88))
-                    Text("YouTube playback stays in the official visible player and is not DSP-processed.")
+                        .foregroundColor(.white.opacity(0.9))
+                    Text("Results show titles and channels only. For DSP playback, import audio you own or are licensed to use, or paste an authorized direct audio URL in Stream DSP.")
                         .font(.system(size: 11, weight: .medium))
                         .foregroundColor(PioneerColors.textMuted)
                         .multilineTextAlignment(.center)
-                        .padding(.horizontal, 24)
+                        .padding(.horizontal, 23)
                 }
                 Spacer()
             } else {
                 List {
                     ForEach(ytService.searchResults) { track in
-                        Button {
-                            selectedYouTubeTrack = track
-                        } label: {
-                            HStack(spacing: 11) {
-                                ZStack {
-                                    RoundedRectangle(cornerRadius: 9, style: .continuous)
-                                        .fill(Color.red.opacity(0.16))
-                                        .frame(width: 42, height: 42)
-                                    Image(systemName: "play.fill")
-                                        .font(.system(size: 13, weight: .bold))
-                                        .foregroundColor(.red.opacity(0.9))
-                                }
-                                VStack(alignment: .leading, spacing: 4) {
-                                    Text(track.title)
-                                        .font(.system(size: 12, weight: .bold))
-                                        .foregroundColor(.white)
-                                        .lineLimit(2)
-                                    Text(track.artist)
-                                        .font(.system(size: 10))
-                                        .foregroundColor(PioneerColors.textMuted)
-                                        .lineLimit(1)
-                                }
-                                Spacer(minLength: 4)
-                                Text("OPEN")
-                                    .font(.system(size: 8, weight: .black, design: .monospaced))
-                                    .foregroundColor(.red.opacity(0.9))
+                        HStack(spacing: 11) {
+                            ZStack {
+                                RoundedRectangle(cornerRadius: 9, style: .continuous)
+                                    .fill(Color.white.opacity(0.045))
+                                    .frame(width: 42, height: 42)
+                                Image(systemName: "play.rectangle")
+                                    .font(.system(size: 15, weight: .semibold))
+                                    .foregroundColor(PioneerColors.amberOrange)
                             }
-                            .padding(.vertical, 4)
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text(track.title)
+                                    .font(.system(size: 12, weight: .bold))
+                                    .foregroundColor(.white)
+                                    .lineLimit(2)
+                                Text(track.artist)
+                                    .font(.system(size: 10))
+                                    .foregroundColor(PioneerColors.textMuted)
+                                    .lineLimit(1)
+                            }
+                            Spacer(minLength: 4)
+                            Text("INFO")
+                                .font(.system(size: 8, weight: .black, design: .monospaced))
+                                .foregroundColor(PioneerColors.cyberCyan)
                         }
-                        .buttonStyle(.plain)
-                        .listRowBackground(Color.white.opacity(0.035))
+                        .padding(.vertical, 4)
+                        .listRowBackground(Color.white.opacity(0.025))
                         .listRowSeparatorTint(Color.white.opacity(0.07))
                     }
                 }

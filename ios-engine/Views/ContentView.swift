@@ -17,7 +17,7 @@ public struct ContentView: View {
                 TabView(selection: $selectedTab) {
                     MainDSPView().tag(0)
                     LibraryView().tag(1)
-                    SpotifyView().tag(2)
+                    DirectStreamView().tag(2)
                     EqualizerView().tag(3)
                     AcousticsView().tag(4)
                     TimeAlignmentView().tag(5)
@@ -28,14 +28,14 @@ public struct ContentView: View {
                 HStack(spacing: 0) {
                     TabPill(icon: "slider.horizontal.3", title: "TUNER", isSelected: selectedTab == 0) { selectedTab = 0 }
                     TabPill(icon: "music.note.list", title: "LIBRARY", isSelected: selectedTab == 1) { selectedTab = 1 }
-                    TabPill(icon: "music.note", title: "SPOTIFY", isSelected: selectedTab == 2) { selectedTab = 2 }
+                    TabPill(icon: "dot.radiowaves.left.and.right", title: "STREAM", isSelected: selectedTab == 2) { selectedTab = 2 }
                     TabPill(icon: "waveform", title: "EQ", isSelected: selectedTab == 3) { selectedTab = 3 }
                     TabPill(icon: "building.columns.fill", title: "HALL", isSelected: selectedTab == 4) { selectedTab = 4 }
                     TabPill(icon: "car.fill", title: "CABIN", isSelected: selectedTab == 5) { selectedTab = 5 }
                 }
                 .padding(.vertical, 8)
                 .padding(.horizontal, 4)
-                .background(.ultraThinMaterial)
+                .background(.ultraThinMaterial.opacity(0.46))
                 .overlay(alignment: .top) {
                     Rectangle()
                         .fill(PioneerColors.titaniumCardBorder)

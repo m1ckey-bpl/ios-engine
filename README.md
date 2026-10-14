@@ -2,19 +2,20 @@
 
 **made by avx**
 
-DSP ENGINE is a native SwiftUI audio-effects app. Local, non-DRM audio files are played through an `AVAudioEngine` graph with a 10-band EQ and reverb controls. Imported tracks stay in the app’s sandbox.
+DSP ENGINE is a native SwiftUI audio-effects app. Compatible local, non-DRM files are played through an `AVAudioEngine` graph with a 10-band EQ and effects. Imported tracks stay in the app’s sandbox.
 
 ## Playback boundaries
 
-- **Local files:** import compatible mono or stereo audio from Files to use the DSP chain.
-- **Spotify:** playlist links open the official Spotify app or Spotify web player. Spotify streams are not captured or DSP-processed. The repository does not currently include Spotify OAuth/App Remote credentials, so it does not claim in-app remote playback control.
-- **YouTube:** search uses the YouTube Data API v3 when the user provides a key; a result opens in a visible official YouTube embedded player. YouTube media is not extracted, cached, or processed by DSP ENGINE.
+- **Local files:** import compatible mono or stereo audio from Files to use the local DSP chain.
+- **Authorized direct streams:** paste a direct HTTPS audio-only URL (for example MP3, AAC/M4A, WAV, AIFF, or CAF) from a source that permits streaming. The app applies real-time DSP to decoded audio; it does not save a stream copy. The stream path follows the shared 10-band EQ and cabin balance; Hall room/mix selects the multi-tap room-tail profile. A separate bass shelf is also available for streams.
+- **Not accepted:** Spotify or YouTube URLs, protected third-party app playback, DRM/FairPlay streams, HLS playlists, video pages, and URLs without authorization. iOS does not let this app capture another app’s protected audio.
+- **YouTube search:** the official YouTube Data API v3 is used for metadata search only. There is no embedded player, audio extraction, download, caching, or MP3 conversion. Use audio you own or are licensed to use for DSP playback.
 
 The YouTube API key is entered on-device and stored in iOS Keychain. Restrict the key to YouTube Data API v3 and the iOS app bundle ID (`com.pioneerdsp.app`). No API key or OAuth token is committed in this repository.
 
 ## Build an unsigned iOS IPA
 
-Requirements: macOS, Xcode, and an iOS 17+ deployment target.
+Requirements: macOS, Xcode, and an iOS 17+ deployment target. The GitHub Actions workflow uses the standard `macos-15` runner.
 
 ```bash
 xcodebuild -project ios-engine.xcodeproj \

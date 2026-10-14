@@ -4,9 +4,9 @@ import SwiftUI
 /// the shipped product branding and palette are DSP ENGINE / AVX.
 public struct PioneerColors {
     public static let carbonBg = Color(red: 0.012, green: 0.018, blue: 0.055)
-    // A light tint over ultra-thin material keeps the anime wallpaper visible through cards.
-    public static let titaniumCard = Color(red: 0.035, green: 0.045, blue: 0.105).opacity(0.22)
-    public static let titaniumCardBorder = Color(red: 0.24, green: 0.34, blue: 0.57).opacity(0.72)
+    // A low-opacity tint keeps the rotating anime wallpaper visible through cards.
+    public static let titaniumCard = Color(red: 0.035, green: 0.045, blue: 0.105).opacity(0.09)
+    public static let titaniumCardBorder = Color(red: 0.24, green: 0.34, blue: 0.57).opacity(0.48)
 
     // Existing property names are kept for source compatibility; the values are now neon cyan / violet.
     public static let amberOrange = Color(red: 0.20, green: 0.91, blue: 1.0)
@@ -24,7 +24,7 @@ public struct PioneerCardModifier: ViewModifier {
         content
             .background {
                 RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                    .fill(.ultraThinMaterial)
+                    .fill(.ultraThinMaterial.opacity(0.54))
                     .overlay {
                         RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
                             .fill(PioneerColors.titaniumCard)
@@ -33,7 +33,7 @@ public struct PioneerCardModifier: ViewModifier {
                         RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
                             .fill(
                                 LinearGradient(
-                                    colors: [Color.white.opacity(0.11), Color.white.opacity(0.025), .clear],
+                                    colors: [Color.white.opacity(0.055), Color.white.opacity(0.012), .clear],
                                     startPoint: .topLeading,
                                     endPoint: .bottomTrailing
                                 )
@@ -47,7 +47,7 @@ public struct PioneerCardModifier: ViewModifier {
                             colors: [
                                 borderHighlight.opacity(0.68),
                                 PioneerColors.titaniumCardBorder,
-                                Color.white.opacity(0.08)
+                                Color.white.opacity(0.045)
                             ],
                             startPoint: .topLeading,
                             endPoint: .bottomTrailing

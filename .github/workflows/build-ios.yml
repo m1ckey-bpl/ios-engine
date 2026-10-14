@@ -11,7 +11,7 @@ permissions:
 jobs:
   build-ios:
     name: Build unsigned iOS IPA
-    runs-on: macos-14
+    runs-on: macos-15
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -47,13 +47,14 @@ jobs:
         uses: softprops/action-gh-release@v2
         if: github.ref == 'refs/heads/main'
         with:
-          tag_name: v5.0.0
-          name: "DSP ENGINE for iOS v5.0.0"
+          tag_name: v5.0.1
+          name: "DSP ENGINE for iOS v5.0.1"
           body: |
             ## DSP ENGINE for iOS — made by avx
 
             - DSP processing for compatible local, non-DRM audio files.
-            - Spotify links open Spotify's official app/player; Spotify audio is not DSP-processed.
-            - YouTube search uses the official Data API; playback stays in the visible official YouTube player.
+            - Real-time DSP for user-supplied, authorized direct HTTPS audio URLs; no audio is saved by the stream player.
+            - YouTube Data API metadata search only. No embedded YouTube player, audio extraction, download, or MP3 conversion.
+            - Spotify UI/service removed; protected third-party playback is not captured or processed.
             - The included IPA is unsigned and must be signed with a valid Apple identity/profile or a trusted sideloading workflow before installation.
           files: DSP_ENGINE_unsigned.ipa

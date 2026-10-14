@@ -238,6 +238,7 @@ public final class MusicLibraryManager: ObservableObject {
 
     private func startSong(at index: Int, autoplay: Bool, resetShuffleHistory: Bool) -> Bool {
         guard songs.indices.contains(index) else { return false }
+        DirectStreamDSPPlayer.shared.stop()
         currentSongIndex = index
         let song = songs[index]
 

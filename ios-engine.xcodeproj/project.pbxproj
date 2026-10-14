@@ -12,7 +12,7 @@
 		10010003 /* DSPSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20010003 /* DSPSettings.swift */; };
 		10010004 /* SongItem.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20010004 /* SongItem.swift */; };
 		10010005 /* AudioDSPEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20010005 /* AudioDSPEngine.swift */; };
-		10010006 /* SpotifyService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20010006 /* SpotifyService.swift */; };
+		10010006 /* DirectStreamPlayer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20010006 /* DirectStreamPlayer.swift */; };
 		10010007 /* MusicLibraryManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20010007 /* MusicLibraryManager.swift */; };
 		10010008 /* PioneerTheme.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20010008 /* PioneerTheme.swift */; };
 		10010009 /* SpectrumVisualizerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20010009 /* SpectrumVisualizerView.swift */; };
@@ -24,10 +24,9 @@
 		10010016 /* EqualizerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20010016 /* EqualizerView.swift */; };
 		10010017 /* AcousticsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20010017 /* AcousticsView.swift */; };
 		10010018 /* TimeAlignmentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20010018 /* TimeAlignmentView.swift */; };
-		10010019 /* SpotifyView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20010019 /* SpotifyView.swift */; };
+		10010019 /* DirectStreamView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20010019 /* DirectStreamView.swift */; };
 		10010020 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 20010020 /* Assets.xcassets */; };
 		10010021 /* DSPVisuals.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20010022 /* DSPVisuals.swift */; };
-		10010022 /* YouTubePlayerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20010023 /* YouTubePlayerView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -37,7 +36,7 @@
 		20010003 /* DSPSettings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DSPSettings.swift; sourceTree = "<group>"; };
 		20010004 /* SongItem.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SongItem.swift; sourceTree = "<group>"; };
 		20010005 /* AudioDSPEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioDSPEngine.swift; sourceTree = "<group>"; };
-		20010006 /* SpotifyService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpotifyService.swift; sourceTree = "<group>"; };
+		20010006 /* DirectStreamPlayer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DirectStreamPlayer.swift; sourceTree = "<group>"; };
 		20010007 /* MusicLibraryManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MusicLibraryManager.swift; sourceTree = "<group>"; };
 		20010008 /* PioneerTheme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PioneerTheme.swift; sourceTree = "<group>"; };
 		20010009 /* SpectrumVisualizerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpectrumVisualizerView.swift; sourceTree = "<group>"; };
@@ -49,11 +48,10 @@
 		20010016 /* EqualizerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EqualizerView.swift; sourceTree = "<group>"; };
 		20010017 /* AcousticsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AcousticsView.swift; sourceTree = "<group>"; };
 		20010018 /* TimeAlignmentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TimeAlignmentView.swift; sourceTree = "<group>"; };
-		20010019 /* SpotifyView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpotifyView.swift; sourceTree = "<group>"; };
+		20010019 /* DirectStreamView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DirectStreamView.swift; sourceTree = "<group>"; };
 		20010020 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		20010021 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		20010022 /* DSPVisuals.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DSPVisuals.swift; sourceTree = "<group>"; };
-		20010023 /* YouTubePlayerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = YouTubePlayerView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -109,7 +107,7 @@
 			isa = PBXGroup;
 			children = (
 				20010005 /* AudioDSPEngine.swift */,
-				20010006 /* SpotifyService.swift */,
+				20010006 /* DirectStreamPlayer.swift */,
 				20010007 /* MusicLibraryManager.swift */,
 			);
 			path = Services;
@@ -134,7 +132,6 @@
 				20010011 /* CarCabinVisualizer.swift */,
 				20010012 /* DocumentPickerView.swift */,
 				20010022 /* DSPVisuals.swift */,
-				20010023 /* YouTubePlayerView.swift */,
 			);
 			path = Components;
 			sourceTree = "<group>";
@@ -147,7 +144,7 @@
 				20010016 /* EqualizerView.swift */,
 				20010017 /* AcousticsView.swift */,
 				20010018 /* TimeAlignmentView.swift */,
-				20010019 /* SpotifyView.swift */,
+				20010019 /* DirectStreamView.swift */,
 			);
 			path = Tabs;
 			sourceTree = "<group>";
@@ -226,7 +223,7 @@
 				10010003 /* DSPSettings.swift in Sources */,
 				10010004 /* SongItem.swift in Sources */,
 				10010005 /* AudioDSPEngine.swift in Sources */,
-				10010006 /* SpotifyService.swift in Sources */,
+				10010006 /* DirectStreamPlayer.swift in Sources */,
 				10010007 /* MusicLibraryManager.swift in Sources */,
 				10010008 /* PioneerTheme.swift in Sources */,
 				10010009 /* SpectrumVisualizerView.swift in Sources */,
@@ -234,13 +231,12 @@
 				10010011 /* CarCabinVisualizer.swift in Sources */,
 				10010012 /* DocumentPickerView.swift in Sources */,
 				10010021 /* DSPVisuals.swift in Sources */,
-				10010022 /* YouTubePlayerView.swift in Sources */,
 				10010014 /* MainDSPView.swift in Sources */,
 				10010015 /* LibraryView.swift in Sources */,
 				10010016 /* EqualizerView.swift in Sources */,
 				10010017 /* AcousticsView.swift in Sources */,
 				10010018 /* TimeAlignmentView.swift in Sources */,
-				10010019 /* SpotifyView.swift in Sources */,
+				10010019 /* DirectStreamView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -304,7 +300,7 @@
 				CODE_SIGN_IDENTITY = "";
 				CODE_SIGNING_REQUIRED = NO;
 				CODE_SIGNING_ALLOWED = NO;
-				CURRENT_PROJECT_VERSION = 3;
+				CURRENT_PROJECT_VERSION = 4;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = "ios-engine/Info.plist";
@@ -312,7 +308,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 5.0.0;
+				MARKETING_VERSION = 5.0.1;
 				PRODUCT_BUNDLE_IDENTIFIER = com.pioneerdsp.app;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = YES;
@@ -330,7 +326,7 @@
 				CODE_SIGN_IDENTITY = "";
 				CODE_SIGNING_REQUIRED = NO;
 				CODE_SIGNING_ALLOWED = NO;
-				CURRENT_PROJECT_VERSION = 3;
+				CURRENT_PROJECT_VERSION = 4;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = "ios-engine/Info.plist";
@@ -338,7 +334,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 5.0.0;
+				MARKETING_VERSION = 5.0.1;
 				PRODUCT_BUNDLE_IDENTIFIER = com.pioneerdsp.app;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = YES;

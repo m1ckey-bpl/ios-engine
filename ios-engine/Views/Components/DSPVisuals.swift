@@ -2,7 +2,7 @@ import Foundation
 import SwiftUI
 
 /// Four anime night-sky wallpapers rotate on a 10-second cadence with a soft crossfade.
-/// The lightweight snow canvas and visible DSP ENGINE / AVX image mark stay above the art.
+/// The lightweight snow canvas and crisp AVX wordmark stay above the rotating art.
 public struct DSPNightBackground: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.scenePhase) private var scenePhase
@@ -39,24 +39,18 @@ public struct DSPNightBackground: View {
                         .accessibilityHidden(true)
 
                     VStack {
-                        HStack {
-                            Spacer()
-                            Image("Logo")
-                                .resizable()
-                                .scaledToFit()
-                                .frame(width: 66, height: 66)
-                                .padding(4)
-                                .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
-                                .overlay {
-                                    RoundedRectangle(cornerRadius: 16, style: .continuous)
-                                        .stroke(Color.cyan.opacity(0.48), lineWidth: 1)
-                                }
-                                .shadow(color: Color.cyan.opacity(0.34), radius: 12)
-                                .accessibilityLabel("DSP ENGINE, made by AVX")
-                        }
-                        .padding(.top, 10)
-                        .padding(.trailing, 14)
                         Spacer()
+                        Text("AVX")
+                            .font(.system(size: 25, weight: .black, design: .rounded))
+                            .tracking(8)
+                            .foregroundStyle(.white.opacity(0.88))
+                            .padding(.horizontal, 21)
+                            .padding(.vertical, 9)
+                            .background(.ultraThinMaterial.opacity(0.48), in: Capsule())
+                            .overlay(Capsule().stroke(Color.white.opacity(0.34), lineWidth: 1))
+                            .shadow(color: Color.cyan.opacity(0.42), radius: 12)
+                            .accessibilityLabel("AVX")
+                            .padding(.bottom, 114)
                     }
                 }
                 .frame(width: geometry.size.width, height: geometry.size.height)

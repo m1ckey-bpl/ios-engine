@@ -32,7 +32,7 @@ public struct MainDSPView: View {
                     }
                     .padding(.horizontal, 8)
                     .padding(.vertical, 4)
-                    .background(Color.black.opacity(0.4))
+                    .background(Color.black.opacity(0.21))
                     .cornerRadius(6)
                     .overlay(
                         RoundedRectangle(cornerRadius: 6)

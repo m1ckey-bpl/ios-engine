@@ -13,7 +13,7 @@ public struct SpectrumVisualizerView: View {
     public var body: some View {
         ZStack {
             RoundedRectangle(cornerRadius: 12, style: .continuous)
-                .fill(Color.black.opacity(0.38))
+                .fill(Color.black.opacity(0.22))
             TimelineView(.animation(minimumInterval: 1.0 / 60.0, paused: !isPlaying || reduceMotion)) { timeline in
                 Canvas { context, size in
                     guard size.width > 0, size.height > 0 else { return }

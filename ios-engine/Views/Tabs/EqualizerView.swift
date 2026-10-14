@@ -123,7 +123,7 @@ struct SmoothEQFader: View {
             // Interactive Slider Track
             ZStack(alignment: .bottom) {
                 RoundedRectangle(cornerRadius: 4)
-                    .fill(Color.black.opacity(0.6))
+                    .fill(Color.black.opacity(0.34))
                     .frame(width: 8, height: 150)
                 
                 Rectangle()

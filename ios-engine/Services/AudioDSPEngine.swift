@@ -140,7 +140,7 @@ public final class LRCLibService: ObservableObject {
     }
 }
 
-// MARK: - YouTube search metadata (playback uses the official visible YouTube player)
+// MARK: - YouTube search metadata only — no player, audio extraction, or download
 public struct YouTubeTrackResult: Identifiable, Equatable {
     public let id: String
     public let videoId: String

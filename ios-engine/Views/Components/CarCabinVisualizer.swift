@@ -18,7 +18,7 @@ public struct CarCabinVisualizer: View {
                     .frame(width: 190, height: 230)
                     .background(
                         RoundedRectangle(cornerRadius: 32)
-                            .fill(Color.black.opacity(0.4))
+                            .fill(Color.black.opacity(0.24))
                     )
                 
                 // Windshield Curve
