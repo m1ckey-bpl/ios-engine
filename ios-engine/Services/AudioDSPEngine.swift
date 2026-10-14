@@ -423,6 +423,7 @@ public final class AudioDSPEngine: ObservableObject {
 
     @Published public var trackTitle = "DSP ENGINE Test Signal"
     @Published public var trackArtist = "Built-in audio demo"
+    @Published public private(set) var sourceFormatDescription = "44.1 kHz • STEREO DEMO"
     @Published public var currentTime: TimeInterval = 0.0
     @Published public var totalDuration: TimeInterval = 180.0
 
@@ -448,6 +449,8 @@ public final class AudioDSPEngine: ObservableObject {
     private var activeAudioFile: AVAudioFile?
     private var currentAudioFormat: AVAudioFormat
     private var isPausedState = false
+    /// Invalidates callbacks from segments that were stopped, sought, or replaced.
+    private var playbackGeneration: UInt64 = 0
     private var playbackTimer: AnyCancellable?
     private var notificationObservers: [NSObjectProtocol] = []
     private var wasPlayingBeforeInterruption = false
@@ -485,6 +488,7 @@ public final class AudioDSPEngine: ObservableObject {
     /// Reconnect all DSP nodes to the source's PCM format. Matching the player-node
     /// connection to the actual source avoids AVAudioPlayerNode format-assertion crashes.
     private func setupEngineGraph(for format: AVAudioFormat) {
+        playbackGeneration &+= 1
         audioEngine.stop()
         playerNode.stop()
         audioEngine.disconnectNodeOutput(playerNode)
@@ -519,6 +523,12 @@ public final class AudioDSPEngine: ObservableObject {
             && lhs.channelCount == rhs.channelCount
             && lhs.commonFormat == rhs.commonFormat
             && lhs.isInterleaved == rhs.isInterleaved
+    }
+
+    private func describeSourceFormat(_ format: AVAudioFormat, isDemo: Bool = false) -> String {
+        let rate = String(format: "%.1f kHz", format.sampleRate / 1_000)
+        let channels = format.channelCount == 1 ? "MONO" : "STEREO"
+        return isDemo ? "\(rate) • \(channels) DEMO" : "\(rate) • \(channels)"
     }
 
     private func observeAudioSessionChanges() {
@@ -654,6 +664,7 @@ public final class AudioDSPEngine: ObservableObject {
     }
 
     public func stop() {
+        playbackGeneration &+= 1
         playerNode.stop()
         isPausedState = false
         isPlaying = false
@@ -663,6 +674,8 @@ public final class AudioDSPEngine: ObservableObject {
 
     private func startFreshPlayback(from startTime: TimeInterval = 0) {
         guard activeAudioFile != nil || activePCMBuffer != nil else { return }
+        playbackGeneration &+= 1
+        let generation = playbackGeneration
         do {
             if !audioEngine.isRunning { try audioEngine.start() }
         } catch {
@@ -673,7 +686,7 @@ public final class AudioDSPEngine: ObservableObject {
         playerNode.stop()
         if let file = activeAudioFile {
             let startFrame = AVAudioFramePosition(max(0, min(Double(file.length), startTime * file.processingFormat.sampleRate)))
-            scheduleFileSegment(file, from: startFrame, shouldPlay: true)
+            scheduleFileSegment(file, from: startFrame, shouldPlay: true, generation: generation)
         } else if let buffer = activePCMBuffer {
             playerNode.scheduleBuffer(buffer, at: nil, options: .loops, completionHandler: nil)
             playerNode.play()
@@ -684,7 +697,12 @@ public final class AudioDSPEngine: ObservableObject {
         updateNowPlayingInfo()
     }
 
-    private func scheduleFileSegment(_ file: AVAudioFile, from startFrame: AVAudioFramePosition, shouldPlay: Bool) {
+    private func scheduleFileSegment(
+        _ file: AVAudioFile,
+        from startFrame: AVAudioFramePosition,
+        shouldPlay: Bool,
+        generation: UInt64
+    ) {
         let totalFrames = file.length
         let safeStart = max(0, min(startFrame, max(0, totalFrames - 1)))
         let remaining = max(0, totalFrames - safeStart)
@@ -694,7 +712,10 @@ public final class AudioDSPEngine: ObservableObject {
         }
         let frameCount = AVAudioFrameCount(min(remaining, Int64(UInt32.max)))
         playerNode.scheduleSegment(file, startingFrame: safeStart, frameCount: frameCount, at: nil) { [weak self] in
-            Task { @MainActor [weak self] in self?.handleFilePlaybackFinished() }
+            Task { @MainActor [weak self] in
+                guard let self, self.playbackGeneration == generation else { return }
+                self.handleFilePlaybackFinished()
+            }
         }
         if shouldPlay {
             playerNode.play()
@@ -708,30 +729,45 @@ public final class AudioDSPEngine: ObservableObject {
 
     private func handleFilePlaybackFinished() {
         guard isPlaying, activeAudioFile != nil else { return }
-        currentTime = 0
-        if MusicLibraryManager.shared.isRepeatEnabled {
-            startFreshPlayback()
-        } else {
-            isPlaying = false
-            isPausedState = false
-            updateNowPlayingInfo()
-            MusicLibraryManager.shared.playNext()
-            play()
+        isPlaying = false
+        isPausedState = false
+        currentTime = totalDuration
+        updateNowPlayingInfo()
+
+        if !MusicLibraryManager.shared.advanceAfterTrackFinished() {
+            finishPlaybackAtTrackEnd()
         }
     }
 
+    private func finishPlaybackAtTrackEnd() {
+        playbackGeneration &+= 1
+        playerNode.stop()
+        isPlaying = false
+        isPausedState = false
+        currentTime = totalDuration
+        updateNowPlayingInfo()
+    }
+
     // MARK: File / demo loading
-    public func loadAudioFile(url: URL, title: String? = nil, artist: String? = nil, duration: TimeInterval = 0) {
+    @discardableResult
+    public func loadAudioFile(
+        url: URL,
+        title: String? = nil,
+        artist: String? = nil,
+        duration: TimeInterval = 0,
+        autoplay: Bool = false
+    ) -> Bool {
         do {
             let file = try AVAudioFile(forReading: url)
             let format = file.processingFormat
             guard format.sampleRate.isFinite, format.sampleRate >= 8_000, format.sampleRate <= 192_000,
                   format.channelCount > 0, format.channelCount <= 2 else {
                 reportPlaybackError("This file’s audio format is not supported yet. Use a stereo or mono audio file at 8–192 kHz.")
-                return
+                return false
             }
 
-            let shouldResume = isPlaying
+            let shouldResume = isPlaying || autoplay
+            playbackGeneration &+= 1
             playerNode.stop()
             isPlaying = false
             isPausedState = false
@@ -739,6 +775,7 @@ public final class AudioDSPEngine: ObservableObject {
             if !formatsMatch(currentAudioFormat, format) { setupEngineGraph(for: format) }
 
             activeAudioFile = file
+            sourceFormatDescription = describeSourceFormat(format)
             trackTitle = title ?? url.deletingPathExtension().lastPathComponent
             trackArtist = artist ?? "Imported audio"
             let measuredDuration = Double(file.length) / format.sampleRate
@@ -747,33 +784,44 @@ public final class AudioDSPEngine: ObservableObject {
             playbackError = nil
             updateNowPlayingInfo()
             if shouldResume { startFreshPlayback() }
+            return true
         } catch {
             reportPlaybackError("Couldn’t read this audio file. It may be DRM-protected, damaged, or an unsupported format.")
+            return false
         }
     }
 
-    public func loadBuiltInDemo(title: String, artist: String, duration: TimeInterval) {
-        let shouldResume = isPlaying
+    @discardableResult
+    public func loadBuiltInDemo(
+        title: String,
+        artist: String,
+        duration: TimeInterval,
+        autoplay: Bool = false
+    ) -> Bool {
+        let shouldResume = isPlaying || autoplay
+        playbackGeneration &+= 1
         if !formatsMatch(currentAudioFormat, Self.demoFormat) {
             setupEngineGraph(for: Self.demoFormat)
         }
         playerNode.stop()
         isPlaying = false
+        isPausedState = false
         playbackError = nil
         activeAudioFile = nil
         if cachedDemoBuffer == nil { cachedDemoBuffer = makeDemoBuffer() }
         guard let demoBuffer = cachedDemoBuffer else {
             reportPlaybackError("The built-in audio test signal could not be created.")
-            return
+            return false
         }
         activePCMBuffer = demoBuffer
+        sourceFormatDescription = describeSourceFormat(Self.demoFormat, isDemo: true)
         trackTitle = title
         trackArtist = artist
         totalDuration = max(1, duration)
         currentTime = 0
-        isPausedState = false
         updateNowPlayingInfo()
         if shouldResume { startFreshPlayback() }
+        return true
     }
 
     private func makeDemoBuffer() -> AVAudioPCMBuffer? {
@@ -808,10 +856,13 @@ public final class AudioDSPEngine: ObservableObject {
             .sink { [weak self] _ in
                 guard let self, self.isPlaying else { return }
                 if self.activePCMBuffer != nil, self.currentTime + 1.0 >= self.totalDuration {
-                    self.currentTime = 0
-                } else {
-                    self.currentTime = min(self.currentTime + 1.0, self.totalDuration)
+                    self.currentTime = self.totalDuration
+                    if !MusicLibraryManager.shared.advanceAfterTrackFinished() {
+                        self.finishPlaybackAtTrackEnd()
+                    }
+                    return
                 }
+                self.currentTime = min(self.currentTime + 1.0, self.totalDuration)
                 self.updateNowPlayingInfo()
             }
     }
@@ -824,13 +875,16 @@ public final class AudioDSPEngine: ObservableObject {
         if let file = activeAudioFile {
             let shouldPlay = isPlaying
             let frame = AVAudioFramePosition(targetTime * file.processingFormat.sampleRate)
+            playbackGeneration &+= 1
+            let generation = playbackGeneration
             playerNode.stop()
-            scheduleFileSegment(file, from: frame, shouldPlay: shouldPlay)
+            scheduleFileSegment(file, from: frame, shouldPlay: shouldPlay, generation: generation)
         }
         updateNowPlayingInfo()
     }
 
     public func reportPlaybackError(_ message: String) {
+        playbackGeneration &+= 1
         playbackError = message
         playerNode.stop()
         isPlaying = false

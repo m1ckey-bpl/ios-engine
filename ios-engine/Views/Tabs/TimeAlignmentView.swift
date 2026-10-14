@@ -46,7 +46,7 @@ public struct TimeAlignmentView: View {
                         .font(.system(size: 11, weight: .bold, design: .monospaced))
                         .foregroundColor(PioneerColors.amberOrange)
 
-                    Text("Stereo balance shifts local playback toward the selected seating position. This is simple left/right panning—not per-speaker delay or vehicle-specific acoustic calibration.")
+                    Text("Stereo balance shifts local playback toward the selected seat. Rear-seat choices apply the matching left/right bias; standard stereo does not create separate rear channels, speaker delays, or vehicle-specific acoustic calibration.")
                         .font(.system(size: 12))
                         .foregroundColor(PioneerColors.textMuted)
                 }

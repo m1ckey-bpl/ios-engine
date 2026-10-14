@@ -94,7 +94,7 @@ public struct LibraryView: View {
             HStack(spacing: 8) {
                 Image(systemName: "waveform")
                     .foregroundColor(PioneerColors.amberOrange)
-                Text("EQ & acoustic effects process these local files.")
+                Text("Real-time DSP on compatible local audio • Lossless input keeps its source data; lossy detail can’t be restored.")
                     .font(.system(size: 11, weight: .medium))
                     .foregroundColor(PioneerColors.textMuted)
                 Spacer(minLength: 0)

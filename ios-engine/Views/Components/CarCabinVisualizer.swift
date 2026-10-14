@@ -43,11 +43,11 @@ public struct CarCabinVisualizer: View {
                     
                     // Rear Row
                     HStack(spacing: 44) {
-                        SeatPill(title: "REAR L", isSelected: false) {
-                            onSelect(.all)
+                        SeatPill(title: "REAR L", isSelected: currentPosition == .rearLeft) {
+                            onSelect(.rearLeft)
                         }
-                        SeatPill(title: "REAR R", isSelected: false) {
-                            onSelect(.all)
+                        SeatPill(title: "REAR R", isSelected: currentPosition == .rearRight) {
+                            onSelect(.rearRight)
                         }
                     }
                 }
@@ -102,6 +102,11 @@ struct SeatPill: View {
                 RoundedRectangle(cornerRadius: 12)
                     .stroke(isSelected ? PioneerColors.amberOrange : Color.white.opacity(0.1), lineWidth: 1.5)
             )
+            .scaleEffect(isSelected ? 1.04 : 1.0)
+            .animation(.spring(response: 0.28, dampingFraction: 0.62), value: isSelected)
         }
+        .buttonStyle(.plain)
+        .accessibilityLabel(title)
+        .accessibilityAddTraits(isSelected ? .isSelected : [])
     }
 }

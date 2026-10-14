@@ -9,9 +9,27 @@ public final class MusicLibraryManager: ObservableObject {
 
     @Published public var songs: [SongItem] = []
     @Published public var currentSongIndex: Int = 0
-    @Published public var isShuffleEnabled: Bool = false
-    @Published public var isRepeatEnabled: Bool = true
+    @Published public var isShuffleEnabled: Bool = false {
+        didSet {
+            UserDefaults.standard.set(isShuffleEnabled, forKey: "music_shuffle_enabled")
+            if oldValue != isShuffleEnabled {
+                rebuildShuffleDeck(keepingCurrent: true)
+            }
+        }
+    }
+    @Published public var repeatMode: RepeatMode = .off {
+        didSet {
+            UserDefaults.standard.set(repeatMode.rawValue, forKey: "music_repeat_mode")
+        }
+    }
     @Published public private(set) var isImporting = false
+
+    /// Compatibility for older call sites; repeat-one and repeat-all are both enabled modes.
+    public var isRepeatEnabled: Bool { repeatMode != .off }
+
+    private var shuffleBag: [UUID] = []
+    private var shuffleHistory: [UUID] = []
+    private var shuffleHistoryCursor = -1
 
     public var currentSong: SongItem? {
         guard !songs.isEmpty, songs.indices.contains(currentSongIndex) else { return nil }
@@ -19,8 +37,12 @@ public final class MusicLibraryManager: ObservableObject {
     }
 
     public init() {
+        let defaults = UserDefaults.standard
+        repeatMode = RepeatMode(rawValue: defaults.string(forKey: "music_repeat_mode") ?? "") ?? .off
+        isShuffleEnabled = defaults.bool(forKey: "music_shuffle_enabled")
         loadDefaultLibrary()
         restoreImportedSongs()
+        rebuildShuffleDeck(keepingCurrent: true)
     }
 
     private func loadDefaultLibrary() {
@@ -92,6 +114,10 @@ public final class MusicLibraryManager: ObservableObject {
         guard !addedSongs.isEmpty else { return }
         songs.append(contentsOf: addedSongs)
         saveImportedSongsList()
+        if isShuffleEnabled {
+            let alreadyQueued = Set(shuffleBag + shuffleHistory)
+            shuffleBag.append(contentsOf: addedSongs.map(\.id).filter { !alreadyQueued.contains($0) }.shuffled())
+        }
         UINotificationFeedbackGenerator().notificationOccurred(.success)
     }
 
@@ -108,29 +134,152 @@ public final class MusicLibraryManager: ObservableObject {
         return candidate
     }
 
-    public func selectSong(at index: Int) {
+    /// Select a track. Tapping a library row starts it immediately; callers may pass
+    /// autoplay: false when they only want to load metadata without starting playback.
+    public func selectSong(at index: Int, autoplay: Bool = true) {
         guard songs.indices.contains(index) else { return }
-        currentSongIndex = index
-        let song = songs[index]
-        if let fileURL = song.fileURL {
-            AudioDSPEngine.shared.loadAudioFile(url: fileURL, title: song.title, artist: song.artist, duration: song.duration)
-        } else {
-            AudioDSPEngine.shared.loadBuiltInDemo(title: song.title, artist: song.artist, duration: song.duration)
-        }
+        _ = startSong(at: index, autoplay: autoplay, resetShuffleHistory: true)
     }
 
+    /// Manual Next always loads and starts the next available song, even if playback was paused.
     public func playNext() {
-        guard !songs.isEmpty else { return }
-        currentSongIndex = isShuffleEnabled
-            ? Int.random(in: songs.indices)
-            : (currentSongIndex + 1) % songs.count
-        selectSong(at: currentSongIndex)
+        guard !songs.isEmpty, let nextIndex = nextTrackIndex() else { return }
+        _ = startSong(at: nextIndex, autoplay: true, resetShuffleHistory: false)
+    }
+
+    /// Called once when the active source reaches its end. Returns false when no next item
+    /// can be started, allowing the audio engine to stop cleanly.
+    @discardableResult
+    public func advanceAfterTrackFinished() -> Bool {
+        guard !songs.isEmpty else { return false }
+        if repeatMode == .one {
+            return startSong(at: currentSongIndex, autoplay: true, resetShuffleHistory: false)
+        }
+        guard let nextIndex = nextTrackIndex() else { return false }
+        return startSong(at: nextIndex, autoplay: true, resetShuffleHistory: false)
     }
 
     public func playPrevious() {
         guard !songs.isEmpty else { return }
-        currentSongIndex = (currentSongIndex - 1 + songs.count) % songs.count
-        selectSong(at: currentSongIndex)
+
+        if isShuffleEnabled {
+            if shuffleHistoryCursor > 0 {
+                shuffleHistoryCursor -= 1
+                if let index = songs.firstIndex(where: { $0.id == shuffleHistory[shuffleHistoryCursor] }) {
+                    _ = startSong(at: index, autoplay: true, resetShuffleHistory: false)
+                    return
+                }
+            }
+            // With no earlier shuffled item, Previous restarts the current song.
+            _ = startSong(at: currentSongIndex, autoplay: true, resetShuffleHistory: false)
+            return
+        }
+
+        let previousIndex: Int
+        if currentSongIndex > 0 {
+            previousIndex = currentSongIndex - 1
+        } else if repeatMode == .all {
+            previousIndex = songs.count - 1
+        } else {
+            previousIndex = currentSongIndex
+        }
+        _ = startSong(at: previousIndex, autoplay: true, resetShuffleHistory: false)
+    }
+
+    public func toggleShuffle() {
+        UISelectionFeedbackGenerator().selectionChanged()
+        isShuffleEnabled.toggle()
+    }
+
+    public func cycleRepeatMode() {
+        switch repeatMode {
+        case .off: repeatMode = .all
+        case .all: repeatMode = .one
+        case .one: repeatMode = .off
+        }
+        UISelectionFeedbackGenerator().selectionChanged()
+    }
+
+    private func nextTrackIndex() -> Int? {
+        guard !songs.isEmpty else { return nil }
+        if isShuffleEnabled { return nextShuffledIndex() }
+
+        if currentSongIndex + 1 < songs.count { return currentSongIndex + 1 }
+        return repeatMode == .all ? 0 : nil
+    }
+
+    private func nextShuffledIndex() -> Int? {
+        if shuffleHistoryCursor + 1 < shuffleHistory.count {
+            let nextID = shuffleHistory[shuffleHistoryCursor + 1]
+            guard let index = songs.firstIndex(where: { $0.id == nextID }) else { return nil }
+            shuffleHistoryCursor += 1
+            return index
+        }
+
+        if shuffleBag.isEmpty {
+            guard repeatMode == .all else { return nil }
+            let currentID = currentSong?.id
+            shuffleBag = songs.map(\.id).filter { $0 != currentID }.shuffled()
+            if shuffleBag.isEmpty, let currentID {
+                // A one-song queue in Repeat All must still be able to repeat that song.
+                shuffleBag = [currentID]
+            }
+        }
+
+        guard !shuffleBag.isEmpty else { return nil }
+        let nextID = shuffleBag.removeFirst()
+        if shuffleHistoryCursor + 1 < shuffleHistory.count {
+            shuffleHistory.removeSubrange((shuffleHistoryCursor + 1)..<shuffleHistory.count)
+        }
+        shuffleHistory.append(nextID)
+        shuffleHistoryCursor = shuffleHistory.count - 1
+        return songs.firstIndex(where: { $0.id == nextID })
+    }
+
+    private func startSong(at index: Int, autoplay: Bool, resetShuffleHistory: Bool) -> Bool {
+        guard songs.indices.contains(index) else { return false }
+        currentSongIndex = index
+        let song = songs[index]
+
+        if resetShuffleHistory && isShuffleEnabled {
+            rebuildShuffleDeck(keepingCurrent: true)
+        }
+
+        if let fileURL = song.fileURL {
+            return AudioDSPEngine.shared.loadAudioFile(
+                url: fileURL,
+                title: song.title,
+                artist: song.artist,
+                duration: song.duration,
+                autoplay: autoplay
+            )
+        }
+        return AudioDSPEngine.shared.loadBuiltInDemo(
+            title: song.title,
+            artist: song.artist,
+            duration: song.duration,
+            autoplay: autoplay
+        )
+    }
+
+    private func rebuildShuffleDeck(keepingCurrent: Bool) {
+        guard isShuffleEnabled else {
+            shuffleBag.removeAll()
+            shuffleHistory.removeAll()
+            shuffleHistoryCursor = -1
+            return
+        }
+
+        let currentID = keepingCurrent ? currentSong?.id : nil
+        if let currentID {
+            shuffleHistory = [currentID]
+            shuffleHistoryCursor = 0
+            shuffleBag = songs.map(\.id).filter { $0 != currentID }.shuffled()
+        } else {
+            shuffleHistory = []
+            shuffleHistoryCursor = -1
+            shuffleBag = songs.map(\.id).shuffled()
+        }
     }
 
     public func removeSong(at indexSet: IndexSet) {
@@ -156,10 +305,11 @@ public final class MusicLibraryManager: ObservableObject {
         } else if removedCurrent {
             AudioDSPEngine.shared.stop()
             currentSongIndex = min(currentSongIndex, songs.count - 1)
-            selectSong(at: currentSongIndex)
+            selectSong(at: currentSongIndex, autoplay: false)
         } else {
             currentSongIndex = max(0, currentSongIndex - removedBeforeCurrent)
         }
+        rebuildShuffleDeck(keepingCurrent: true)
     }
 
     private func saveImportedSongsList() {

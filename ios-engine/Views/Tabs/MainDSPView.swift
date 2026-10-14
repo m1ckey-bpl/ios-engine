@@ -19,14 +19,16 @@ public struct MainDSPView: View {
 
                     Spacer()
 
-                    // Hi-Res Audio Badge
+                    // Honest local-processing badge; it does not imply lossy sources are lossless.
                     VStack(alignment: .trailing, spacing: 2) {
                         Text("LOCAL")
                             .font(.system(size: 9, weight: .black, design: .monospaced))
                             .foregroundColor(PioneerColors.hiFiGold)
-                        Text("DSP AUDIO")
-                            .font(.system(size: 8, weight: .bold, design: .monospaced))
-                            .foregroundColor(.white.opacity(0.6))
+                        Text(dspEngine.sourceFormatDescription)
+                            .font(.system(size: 7, weight: .bold, design: .monospaced))
+                            .foregroundColor(.white.opacity(0.68))
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.75)
                     }
                     .padding(.horizontal, 8)
                     .padding(.vertical, 4)
@@ -182,11 +184,11 @@ public struct MainDSPView: View {
                 .padding(.horizontal, 20)
 
                 // Local-file playback dock
-                VStack(spacing: 14) {
-                    HStack(spacing: 12) {
+                VStack(spacing: 13) {
+                    HStack(spacing: 11) {
                         ZStack {
-                            RoundedRectangle(cornerRadius: 10)
-                                .fill(Color.white.opacity(0.08))
+                            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                                .fill(Color.white.opacity(0.075))
                                 .frame(width: 44, height: 44)
                             Image(systemName: "music.note")
                                 .foregroundColor(PioneerColors.amberOrange)
@@ -197,70 +199,101 @@ public struct MainDSPView: View {
                                 .font(.system(size: 13, weight: .bold))
                                 .foregroundColor(.white)
                                 .lineLimit(1)
-
                             Text(dspEngine.trackArtist)
                                 .font(.system(size: 11))
                                 .foregroundColor(PioneerColors.textMuted)
+                                .lineLimit(1)
                         }
 
-                        Spacer()
+                        Spacer(minLength: 4)
 
-                        // Lyrics & Previous, Play/Pause, Next Controls
-                        HStack(spacing: 12) {
-                            Button(action: {
-                                showLyricsSheet = true
-                                Task {
-                                    await LRCLibService.shared.fetchLyrics(title: dspEngine.trackTitle, artist: dspEngine.trackArtist, duration: dspEngine.totalDuration)
-                                }
-                            }) {
-                                ZStack {
-                                    RoundedRectangle(cornerRadius: 8)
-                                        .fill(Color.white.opacity(0.08))
-                                        .frame(width: 32, height: 32)
-                                    Image(systemName: "quote.bubble.fill")
-                                        .font(.system(size: 14))
-                                        .foregroundColor(PioneerColors.amberOrange)
-                                }
+                        Button(action: {
+                            showLyricsSheet = true
+                            Task {
+                                await LRCLibService.shared.fetchLyrics(title: dspEngine.trackTitle, artist: dspEngine.trackArtist, duration: dspEngine.totalDuration)
                             }
+                        }) {
+                            Image(systemName: "quote.bubble.fill")
+                                .font(.system(size: 15, weight: .semibold))
+                                .foregroundColor(PioneerColors.amberOrange)
+                                .frame(width: 38, height: 38)
+                                .background(Color.white.opacity(0.065), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityLabel("Show synchronized lyrics")
+                    }
 
-                            Button(action: {
-                                libraryManager.playPrevious()
-                            }) {
-                                Image(systemName: "backward.fill")
-                                    .font(.system(size: 15))
-                                    .foregroundColor(Color.white.opacity(0.7))
-                            }
+                    HStack(spacing: 8) {
+                        PlaybackModeButton(
+                            icon: "shuffle",
+                            title: "SHUF",
+                            isActive: libraryManager.isShuffleEnabled,
+                            activeColor: PioneerColors.cyberCyan,
+                            accessibilityText: libraryManager.isShuffleEnabled ? "Shuffle on" : "Shuffle off"
+                        ) {
+                            libraryManager.toggleShuffle()
+                        }
 
-                            Button(action: {
-                                dspEngine.togglePlayPause()
-                            }) {
-                                ZStack {
-                                    Circle()
-                                        .fill(PioneerColors.amberOrange)
-                                        .frame(width: 42, height: 42)
-                                    Image(systemName: dspEngine.isPlaying ? "pause.fill" : "play.fill")
-                                        .font(.system(size: 18))
-                                        .foregroundColor(.black)
-                                }
-                                .shadow(color: PioneerColors.amberOrange.opacity(0.4), radius: 6)
-                            }
+                        Spacer(minLength: 0)
 
-                            Button(action: {
-                                libraryManager.playNext()
-                            }) {
-                                Image(systemName: "forward.fill")
-                                    .font(.system(size: 15))
-                                    .foregroundColor(Color.white.opacity(0.7))
+                        Button(action: { libraryManager.playPrevious() }) {
+                            Image(systemName: "backward.fill")
+                                .font(.system(size: 16, weight: .semibold))
+                                .foregroundColor(Color.white.opacity(0.82))
+                                .frame(width: 32, height: 44)
+                                .contentShape(Rectangle())
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityLabel("Previous track")
+
+                        Spacer(minLength: 0)
+
+                        Button(action: { dspEngine.togglePlayPause() }) {
+                            ZStack {
+                                Circle()
+                                    .fill(PioneerColors.amberOrange)
+                                    .frame(width: 48, height: 48)
+                                Image(systemName: dspEngine.isPlaying ? "pause.fill" : "play.fill")
+                                    .font(.system(size: 18, weight: .bold))
+                                    .foregroundColor(.black)
+                                    .contentTransition(.symbolEffect(.replace))
                             }
+                            .shadow(color: PioneerColors.amberOrange.opacity(0.43), radius: 8)
+                            .scaleEffect(dspEngine.isPlaying ? 1.04 : 1.0)
+                            .animation(.spring(response: 0.32, dampingFraction: 0.62), value: dspEngine.isPlaying)
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityLabel(dspEngine.isPlaying ? "Pause" : "Play")
+
+                        Spacer(minLength: 0)
+
+                        Button(action: { libraryManager.playNext() }) {
+                            Image(systemName: "forward.fill")
+                                .font(.system(size: 16, weight: .semibold))
+                                .foregroundColor(Color.white.opacity(0.82))
+                                .frame(width: 32, height: 44)
+                                .contentShape(Rectangle())
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityLabel("Next track")
+
+                        Spacer(minLength: 0)
+
+                        PlaybackModeButton(
+                            icon: libraryManager.repeatMode.symbolName,
+                            title: libraryManager.repeatMode.rawValue,
+                            isActive: libraryManager.repeatMode != .off,
+                            activeColor: PioneerColors.amberOrange,
+                            accessibilityText: libraryManager.repeatMode.accessibilityDescription
+                        ) {
+                            libraryManager.cycleRepeatMode()
                         }
                     }
 
-                    Divider().background(Color.white.opacity(0.1))
+                    Divider().overlay(Color.white.opacity(0.12))
 
                     // Import Multi-Song Library Button
-                    Button(action: {
-                        showMultiPicker = true
-                    }) {
+                    Button(action: { showMultiPicker = true }) {
                         HStack(spacing: 8) {
                             Image(systemName: "folder.badge.plus")
                                 .foregroundColor(PioneerColors.cyberCyan)
@@ -270,12 +303,12 @@ public struct MainDSPView: View {
                         }
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 10)
-                        .background(Color.white.opacity(0.04))
-                        .cornerRadius(10)
+                        .background(Color.white.opacity(0.045), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
                     }
+                    .buttonStyle(.plain)
                 }
                 .padding(16)
-                .pioneerCard(cornerRadius: 18, highlight: PioneerColors.amberOrange.opacity(0.3))
+                .pioneerCard(cornerRadius: 18, highlight: PioneerColors.amberOrange.opacity(0.36))
                 .padding(.horizontal, 20)
 
                 Spacer().frame(height: 30)
@@ -295,5 +328,42 @@ public struct MainDSPView: View {
                 .presentationDetents([.large])
                 .presentationDragIndicator(.visible)
         }
+    }
+}
+
+private struct PlaybackModeButton: View {
+    let icon: String
+    let title: String
+    let isActive: Bool
+    let activeColor: Color
+    let accessibilityText: String
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            VStack(spacing: 3) {
+                Image(systemName: icon)
+                    .font(.system(size: 14, weight: .bold))
+                    .contentTransition(.symbolEffect(.replace))
+                Text(title)
+                    .font(.system(size: 7, weight: .black, design: .monospaced))
+                    .tracking(0.35)
+                    .lineLimit(1)
+            }
+            .foregroundStyle(isActive ? activeColor : Color.white.opacity(0.52))
+            .frame(width: 46, height: 44)
+            .background(
+                isActive ? activeColor.opacity(0.17) : Color.white.opacity(0.045),
+                in: RoundedRectangle(cornerRadius: 11, style: .continuous)
+            )
+            .overlay {
+                RoundedRectangle(cornerRadius: 11, style: .continuous)
+                    .stroke(isActive ? activeColor.opacity(0.68) : Color.white.opacity(0.10), lineWidth: 1)
+            }
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(accessibilityText)
+        .animation(.spring(response: 0.30, dampingFraction: 0.70), value: isActive)
+        .animation(.spring(response: 0.30, dampingFraction: 0.70), value: icon)
     }
 }

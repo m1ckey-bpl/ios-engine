@@ -34,6 +34,29 @@ public enum DSPPreset: String, CaseIterable, Identifiable {
     }
 }
 
+public enum RepeatMode: String, CaseIterable, Identifiable {
+    case off = "OFF"
+    case all = "ALL"
+    case one = "ONE"
+
+    public var id: String { rawValue }
+
+    public var symbolName: String {
+        switch self {
+        case .off, .all: return "repeat"
+        case .one: return "repeat.1"
+        }
+    }
+
+    public var accessibilityDescription: String {
+        switch self {
+        case .off: return "Repeat off"
+        case .all: return "Repeat all"
+        case .one: return "Repeat one"
+        }
+    }
+}
+
 public enum ReverbRoomType: String, CaseIterable, Identifiable {
     case concertHall = "Concert Hall"
     case largeHall = "Large Arena"
@@ -59,15 +82,19 @@ public enum ListeningPosition: String, CaseIterable, Identifiable {
     case frontLeft = "DRIVER (FL)"
     case frontRight = "PASSENGER (FR)"
     case frontCenter = "FRONT CENTER"
+    case rearLeft = "REAR LEFT"
+    case rearRight = "REAR RIGHT"
 
     public var id: String { rawValue }
 
+    /// AVAudioPlayerNode pan is stereo left/right balance only; it does not create rear-channel audio.
     public var balancePan: Float {
         switch self {
-        case .all: return 0.0
+        case .all, .frontCenter: return 0.0
         case .frontLeft: return -0.45
         case .frontRight: return 0.45
-        case .frontCenter: return 0.0
+        case .rearLeft: return -0.30
+        case .rearRight: return 0.30
         }
     }
 }

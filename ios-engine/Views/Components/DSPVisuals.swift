@@ -1,58 +1,96 @@
+import Foundation
 import SwiftUI
 
-/// Shared night-sky art, a restrained drifting-snow effect, and the DSP ENGINE wordmark.
-/// The snowfall is drawn in one Canvas layer so it stays lightweight during scrolling.
+/// Four anime night-sky wallpapers rotate on a 10-second cadence with a soft crossfade.
+/// The lightweight snow canvas and visible DSP ENGINE / AVX image mark stay above the art.
 public struct DSPNightBackground: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.scenePhase) private var scenePhase
+    @State private var rotationStart = Date()
+
+    private static let wallpaperNames = [
+        "NightAnimeBackground",
+        "NightAnimeBackground2",
+        "NightAnimeBackground3",
+        "NightAnimeBackground4"
+    ]
+    private let rotationInterval: TimeInterval = 10
+    private let crossfadeDuration: TimeInterval = 1.45
 
     public init() {}
 
     public var body: some View {
         GeometryReader { geometry in
-            ZStack {
-                Image("NightAnimeBackground")
-                    .resizable()
-                    .scaledToFill()
-                    .frame(width: geometry.size.width, height: geometry.size.height)
-                    .clipped()
+            TimelineView(.animation(minimumInterval: 1.0 / 30.0, paused: scenePhase != .active)) { timeline in
+                ZStack {
+                    wallpaper(at: timeline.date, size: geometry.size)
 
-                LinearGradient(
-                    stops: [
-                        .init(color: Color(red: 0.015, green: 0.02, blue: 0.07).opacity(0.12), location: 0),
-                        .init(color: Color(red: 0.015, green: 0.02, blue: 0.07).opacity(0.30), location: 0.42),
-                        .init(color: Color(red: 0.015, green: 0.02, blue: 0.07).opacity(0.86), location: 1)
-                    ],
-                    startPoint: .top,
-                    endPoint: .bottom
-                )
+                    LinearGradient(
+                        stops: [
+                            .init(color: Color(red: 0.015, green: 0.02, blue: 0.07).opacity(0.10), location: 0),
+                            .init(color: Color(red: 0.015, green: 0.02, blue: 0.07).opacity(0.24), location: 0.42),
+                            .init(color: Color(red: 0.015, green: 0.02, blue: 0.07).opacity(0.78), location: 1)
+                        ],
+                        startPoint: .top,
+                        endPoint: .bottom
+                    )
 
-                SnowfallCanvas(isPaused: reduceMotion || scenePhase != .active)
-                    .accessibilityHidden(true)
+                    SnowfallCanvas(isPaused: reduceMotion || scenePhase != .active)
+                        .accessibilityHidden(true)
 
-                VStack {
-                    HStack {
+                    VStack {
+                        HStack {
+                            Spacer()
+                            Image("Logo")
+                                .resizable()
+                                .scaledToFit()
+                                .frame(width: 66, height: 66)
+                                .padding(4)
+                                .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+                                .overlay {
+                                    RoundedRectangle(cornerRadius: 16, style: .continuous)
+                                        .stroke(Color.cyan.opacity(0.48), lineWidth: 1)
+                                }
+                                .shadow(color: Color.cyan.opacity(0.34), radius: 12)
+                                .accessibilityLabel("DSP ENGINE, made by AVX")
+                        }
+                        .padding(.top, 10)
+                        .padding(.trailing, 14)
                         Spacer()
-                        Text("AVX")
-                            .font(.system(size: 12, weight: .black, design: .rounded))
-                            .tracking(3)
-                            .foregroundStyle(Color.white.opacity(0.86))
-                            .padding(.horizontal, 11)
-                            .padding(.vertical, 6)
-                            .background(.ultraThinMaterial, in: Capsule())
-                            .overlay(Capsule().stroke(Color.cyan.opacity(0.55), lineWidth: 1))
-                            .shadow(color: Color.cyan.opacity(0.45), radius: 12)
                     }
-                    .padding(.top, 10)
-                    .padding(.trailing, 17)
-                    Spacer()
                 }
+                .frame(width: geometry.size.width, height: geometry.size.height)
+                .clipped()
             }
-            .frame(width: geometry.size.width, height: geometry.size.height)
-            .clipped()
         }
         .accessibilityHidden(true)
         .allowsHitTesting(false)
+    }
+
+    @ViewBuilder
+    private func wallpaper(at date: Date, size: CGSize) -> some View {
+        let elapsed = max(0, date.timeIntervalSince(rotationStart))
+        let slot = Int(elapsed / rotationInterval)
+        let phase = elapsed.truncatingRemainder(dividingBy: rotationInterval)
+        let currentIndex = slot % Self.wallpaperNames.count
+        let opacity = reduceMotion ? 1 : min(1, max(0, phase / crossfadeDuration))
+
+        ZStack {
+            if slot > 0 {
+                Image(Self.wallpaperNames[(currentIndex + Self.wallpaperNames.count - 1) % Self.wallpaperNames.count])
+                    .resizable()
+                    .scaledToFill()
+                    .frame(width: size.width, height: size.height)
+                    .clipped()
+                    .opacity(1 - opacity)
+            }
+            Image(Self.wallpaperNames[currentIndex])
+                .resizable()
+                .scaledToFill()
+                .frame(width: size.width, height: size.height)
+                .clipped()
+                .opacity(slot == 0 ? 1 : opacity)
+        }
     }
 }
 
