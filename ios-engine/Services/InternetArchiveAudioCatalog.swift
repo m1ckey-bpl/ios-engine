@@ -112,8 +112,8 @@ final class InternetArchiveAudioCatalog: ObservableObject {
         }
         guard let root = try JSONSerialization.jsonObject(with: data) as? [String: Any],
               let metadata = root["metadata"] as? [String: Any],
-              let identifier = text(metadata["identifier"]), identifier == item.identifier,
-              text(metadata["mediatype"])?.lowercased() == "audio",
+              let identifier = Self.text(metadata["identifier"]), identifier == item.identifier,
+              Self.text(metadata["mediatype"])?.lowercased() == "audio",
               let licenseURL = Self.strings(metadata["licenseurl"]).first(where: Self.isPermittedLicense),
               Self.strings(metadata["collection"]).contains(where: { Self.permittedCollections.contains($0.lowercased()) }),
               let rawFiles = root["files"] as? [[String: Any]] else {
@@ -121,7 +121,7 @@ final class InternetArchiveAudioCatalog: ObservableObject {
         }
 
         let audioFiles = rawFiles.compactMap { file -> ArchiveAudioFile? in
-            guard let name = text(file["name"]),
+            guard let name = Self.text(file["name"]),
                   Self.isPublicFile(file),
                   Self.isSafeArchivePath(name),
                   Self.supportedExtensions.contains(URL(fileURLWithPath: name).pathExtension.lowercased()),
@@ -129,8 +129,8 @@ final class InternetArchiveAudioCatalog: ObservableObject {
             return ArchiveAudioFile(
                 id: "\(item.identifier)/\(name)",
                 name: name,
-                format: text(file["format"]) ?? URL(fileURLWithPath: name).pathExtension.uppercased(),
-                sizeBytes: integer(file["size"]),
+                format: Self.text(file["format"]) ?? URL(fileURLWithPath: name).pathExtension.uppercased(),
+                sizeBytes: Self.integer(file["size"]),
                 streamURL: streamURL
             )
         }
