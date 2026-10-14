@@ -1,5 +1,6 @@
 import Foundation
 import AVFoundation
+import AudioToolbox
 import Combine
 import UIKit
 import MediaPlayer
@@ -451,7 +452,7 @@ public final class AudioDSPEngine: ObservableObject {
     private let eqNode: AVAudioUnitEQ
     private let delayNode: AVAudioUnitDelay
     private let reverbNode: AVAudioUnitReverb
-    private let dynamicsNode: AVAudioUnitDynamicsProcessor
+    private let dynamicsNode: AVAudioUnitEffect
     private var activePCMBuffer: AVAudioPCMBuffer?
     private var cachedDemoBuffer: AVAudioPCMBuffer?
     private var activeAudioFile: AVAudioFile?
@@ -473,7 +474,7 @@ public final class AudioDSPEngine: ObservableObject {
         eqNode = AVAudioUnitEQ(numberOfBands: 11)
         delayNode = AVAudioUnitDelay()
         reverbNode = AVAudioUnitReverb()
-        dynamicsNode = AVAudioUnitDynamicsProcessor()
+        dynamicsNode = Self.makeDynamicsNode()
         currentAudioFormat = Self.demoFormat
 
         audioEngine.attach(playerNode)
@@ -484,12 +485,7 @@ public final class AudioDSPEngine: ObservableObject {
         delayNode.delayTime = 0.32
         delayNode.feedback = 18
         delayNode.wetDryMix = 0
-        dynamicsNode.threshold = -1.0
-        dynamicsNode.headRoom = 1.0
-        dynamicsNode.expansionRatio = 1.0
-        dynamicsNode.attackTime = 0.003
-        dynamicsNode.releaseTime = 0.12
-        dynamicsNode.masterGain = 0
+        dynamicsNode.bypass = true
         setupAudioSession()
         setupEngineGraph(for: currentAudioFormat)
         setupRemoteCommandCenter()
@@ -551,15 +547,35 @@ public final class AudioDSPEngine: ObservableObject {
         }
     }
 
+    private static func makeDynamicsNode() -> AVAudioUnitEffect {
+        let description = AudioComponentDescription(
+            componentType: kAudioUnitType_Effect,
+            componentSubType: kAudioUnitSubType_DynamicsProcessor,
+            componentManufacturer: kAudioUnitManufacturer_Apple,
+            componentFlags: 0,
+            componentFlagsMask: 0
+        )
+        return AVAudioUnitEffect(audioComponentDescription: description)
+    }
+
+    private func setDynamicsParameter(_ parameterID: AudioUnitParameterID, value: AUValue) {
+        dynamicsNode.auAudioUnit.parameterTree?
+            .parameter(withID: parameterID, scope: kAudioUnitScope_Global, element: 0)?
+            .value = value
+    }
+
     private func configureDynamics() {
         let amount = min(1, max(0, compressorAmount))
         dynamicsNode.bypass = amount == 0
-        dynamicsNode.threshold = amount == 0 ? -1.0 : -8.0 - amount * 12.0
-        dynamicsNode.headRoom = 1.0 + amount * 2.0
-        dynamicsNode.expansionRatio = 1.0
-        dynamicsNode.attackTime = 0.003
-        dynamicsNode.releaseTime = 0.12
-        dynamicsNode.masterGain = 0
+
+        // AUDynamicsProcessor has no fixed compressor-ratio parameter. Its
+        // threshold and headroom together control the amount of compression.
+        setDynamicsParameter(kDynamicsProcessorParam_Threshold, value: -8.0 - amount * 16.0)
+        setDynamicsParameter(kDynamicsProcessorParam_HeadRoom, value: max(0.5, 5.0 - amount * 4.5))
+        setDynamicsParameter(kDynamicsProcessorParam_ExpansionRatio, value: 1.0)
+        setDynamicsParameter(kDynamicsProcessorParam_AttackTime, value: 0.003)
+        setDynamicsParameter(kDynamicsProcessorParam_ReleaseTime, value: 0.12)
+        setDynamicsParameter(kDynamicsProcessorParam_OverallGain, value: 0.0)
     }
 
     private func formatsMatch(_ lhs: AVAudioFormat, _ rhs: AVAudioFormat) -> Bool {
