@@ -24,7 +24,7 @@ public struct PioneerCardModifier: ViewModifier {
         content
             .background {
                 RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                    .fill(.ultraThinMaterial.opacity(0.54))
+                    .fill(.ultraThinMaterial.opacity(0.38))
                     .overlay {
                         RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
                             .fill(PioneerColors.titaniumCard)

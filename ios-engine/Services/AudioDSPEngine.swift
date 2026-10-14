@@ -418,6 +418,12 @@ public final class AudioDSPEngine: ObservableObject {
     @Published public var currentReverbRoom: ReverbRoomType = .concertHall
     @Published public var reverbWetDryMix: Float = 0.0
     @Published public var superBassGain: Float = 0.0
+    @Published public var trebleGain: Float = 0.0
+    @Published public var delayMix: Float = 0.0
+    @Published public var compressorAmount: Float = 0.0
+    @Published public var masterVolume: Float = 0.82 {
+        didSet { audioEngine.mainMixerNode.outputVolume = min(1, max(0, masterVolume)) }
+    }
     @Published public var listeningPosition: ListeningPosition = .all
     @Published public var playbackError: String?
 
@@ -443,7 +449,9 @@ public final class AudioDSPEngine: ObservableObject {
     private let audioEngine: AVAudioEngine
     private let playerNode: AVAudioPlayerNode
     private let eqNode: AVAudioUnitEQ
+    private let delayNode: AVAudioUnitDelay
     private let reverbNode: AVAudioUnitReverb
+    private let dynamicsNode: AVAudioUnitDynamicsProcessor
     private var activePCMBuffer: AVAudioPCMBuffer?
     private var cachedDemoBuffer: AVAudioPCMBuffer?
     private var activeAudioFile: AVAudioFile?
@@ -462,13 +470,26 @@ public final class AudioDSPEngine: ObservableObject {
     public init() {
         audioEngine = AVAudioEngine()
         playerNode = AVAudioPlayerNode()
-        eqNode = AVAudioUnitEQ(numberOfBands: 10)
+        eqNode = AVAudioUnitEQ(numberOfBands: 11)
+        delayNode = AVAudioUnitDelay()
         reverbNode = AVAudioUnitReverb()
+        dynamicsNode = AVAudioUnitDynamicsProcessor()
         currentAudioFormat = Self.demoFormat
 
         audioEngine.attach(playerNode)
         audioEngine.attach(eqNode)
+        audioEngine.attach(delayNode)
         audioEngine.attach(reverbNode)
+        audioEngine.attach(dynamicsNode)
+        delayNode.delayTime = 0.32
+        delayNode.feedback = 18
+        delayNode.wetDryMix = 0
+        dynamicsNode.threshold = -1.0
+        dynamicsNode.headRoom = 1.0
+        dynamicsNode.expansionRatio = 1.0
+        dynamicsNode.attackTime = 0.003
+        dynamicsNode.releaseTime = 0.12
+        dynamicsNode.masterGain = 0
         setupAudioSession()
         setupEngineGraph(for: currentAudioFormat)
         setupRemoteCommandCenter()
@@ -493,16 +514,28 @@ public final class AudioDSPEngine: ObservableObject {
         playerNode.stop()
         audioEngine.disconnectNodeOutput(playerNode)
         audioEngine.disconnectNodeOutput(eqNode)
+        audioEngine.disconnectNodeOutput(delayNode)
         audioEngine.disconnectNodeOutput(reverbNode)
+        audioEngine.disconnectNodeOutput(dynamicsNode)
 
         audioEngine.connect(playerNode, to: eqNode, format: format)
         playerNode.pan = listeningPosition.balancePan
-        audioEngine.connect(eqNode, to: reverbNode, format: format)
-        audioEngine.connect(reverbNode, to: audioEngine.mainMixerNode, format: format)
+        audioEngine.connect(eqNode, to: delayNode, format: format)
+        audioEngine.connect(delayNode, to: reverbNode, format: format)
+        audioEngine.connect(reverbNode, to: dynamicsNode, format: format)
+        audioEngine.connect(dynamicsNode, to: audioEngine.mainMixerNode, format: format)
         currentAudioFormat = format
         configureEQParameters(sampleRate: format.sampleRate)
+        let trebleBand = eqNode.bands[10]
+        trebleBand.filterType = .highShelf
+        trebleBand.frequency = min(6_000, Float(max(20, format.sampleRate * 0.45)))
+        trebleBand.gain = trebleGain
+        trebleBand.bypass = false
+        delayNode.wetDryMix = delayMix
         reverbNode.loadFactoryPreset(currentReverbRoom.avPreset)
         reverbNode.wetDryMix = isConcertHallEnabled ? reverbWetDryMix : 0
+        configureDynamics()
+        audioEngine.mainMixerNode.outputVolume = min(1, max(0, masterVolume))
         audioEngine.prepare()
     }
 
@@ -516,6 +549,17 @@ public final class AudioDSPEngine: ObservableObject {
             band.gain = eqBands[index].gain
             band.bypass = false
         }
+    }
+
+    private func configureDynamics() {
+        let amount = min(1, max(0, compressorAmount))
+        dynamicsNode.bypass = amount == 0
+        dynamicsNode.threshold = amount == 0 ? -1.0 : -8.0 - amount * 12.0
+        dynamicsNode.headRoom = 1.0 + amount * 2.0
+        dynamicsNode.expansionRatio = 1.0
+        dynamicsNode.attackTime = 0.003
+        dynamicsNode.releaseTime = 0.12
+        dynamicsNode.masterGain = 0
     }
 
     private func formatsMatch(_ lhs: AVAudioFormat, _ rhs: AVAudioFormat) -> Bool {
@@ -547,7 +591,34 @@ public final class AudioDSPEngine: ObservableObject {
         ) { [weak self] _ in
             Task { @MainActor [weak self] in self?.repairAudioEngineAfterConfigurationChange() }
         }
-        notificationObservers = [interruption, engineChange]
+        let routeChange = center.addObserver(
+            forName: AVAudioSession.routeChangeNotification,
+            object: AVAudioSession.sharedInstance(),
+            queue: .main
+        ) { [weak self] note in
+            Task { @MainActor [weak self] in self?.handleAudioRouteChange(note) }
+        }
+        notificationObservers = [interruption, engineChange, routeChange]
+    }
+
+    private func handleAudioRouteChange(_ notification: Notification) {
+        guard let rawReason = notification.userInfo?[AVAudioSessionRouteChangeReasonKey] as? UInt,
+              let reason = AVAudioSession.RouteChangeReason(rawValue: rawReason) else { return }
+        if reason == .oldDeviceUnavailable,
+           let previous = notification.userInfo?[AVAudioSessionRouteChangePreviousRouteKey] as? AVAudioSessionRouteDescription {
+            let personalOutputs: Set<AVAudioSession.Port> = [.headphones, .bluetoothA2DP, .bluetoothHFP, .bluetoothLE]
+            if previous.outputs.contains(where: { personalOutputs.contains($0.portType) }), isPlaying {
+                pause()
+                return
+            }
+        }
+        guard isPlaying else { return }
+        do {
+            try AVAudioSession.sharedInstance().setActive(true)
+            if !audioEngine.isRunning { try audioEngine.start() }
+        } catch {
+            reportPlaybackError("Audio output changed and playback could not resume.")
+        }
     }
 
     private func handleAudioInterruption(_ notification: Notification) {
@@ -577,7 +648,7 @@ public final class AudioDSPEngine: ObservableObject {
             reportPlaybackError("Audio output changed and the DSP engine could not restart.")
             return
         }
-        startFreshPlayback()
+        startFreshPlayback(from: currentTime)
     }
 
     // MARK: Lock Screen / Control Center commands
@@ -629,10 +700,18 @@ public final class AudioDSPEngine: ObservableObject {
 
     // MARK: Playback
     public func togglePlayPause() {
-        isPlaying ? pause() : play()
+        if DirectStreamDSPPlayer.shared.isActiveOrLoading {
+            DirectStreamDSPPlayer.shared.togglePlayback()
+        } else {
+            isPlaying ? pause() : play()
+        }
     }
 
     public func play() {
+        if DirectStreamDSPPlayer.shared.isActiveOrLoading {
+            DirectStreamDSPPlayer.shared.resume()
+            return
+        }
         guard activeAudioFile != nil || activePCMBuffer != nil else {
             reportPlaybackError("Select a local audio track before pressing Play.")
             return
@@ -656,6 +735,10 @@ public final class AudioDSPEngine: ObservableObject {
     }
 
     public func pause() {
+        if DirectStreamDSPPlayer.shared.isActiveOrLoading {
+            DirectStreamDSPPlayer.shared.pause()
+            return
+        }
         guard isPlaying || playerNode.isPlaying else { return }
         playerNode.pause()
         isPausedState = true
@@ -664,6 +747,14 @@ public final class AudioDSPEngine: ObservableObject {
     }
 
     public func stop() {
+        if DirectStreamDSPPlayer.shared.isActiveOrLoading {
+            DirectStreamDSPPlayer.shared.stop()
+        }
+        stopLocalPlayback()
+    }
+
+    /// Stops only the AVAudioEngine local source; used when a direct stream takes ownership.
+    public func stopLocalPlayback() {
         playbackGeneration &+= 1
         playerNode.stop()
         isPausedState = false
@@ -868,6 +959,10 @@ public final class AudioDSPEngine: ObservableObject {
     }
 
     public func seek(to progress: Double) {
+        if DirectStreamDSPPlayer.shared.isActive {
+            DirectStreamDSPPlayer.shared.seek(toFraction: progress)
+            return
+        }
         guard totalDuration.isFinite, totalDuration > 0 else { return }
         let clamped = max(0, min(1, progress))
         let targetTime = totalDuration * clamped
@@ -936,6 +1031,30 @@ public final class AudioDSPEngine: ObservableObject {
         setEQBandGain(index: 1, gain: clamped)
     }
 
+    public func setTreble(_ gain: Float) {
+        let clamped = max(-12, min(12, gain))
+        trebleGain = clamped
+        eqNode.bands[10].filterType = .highShelf
+        eqNode.bands[10].frequency = min(6_000, Float(max(20, currentAudioFormat.sampleRate * 0.45)))
+        eqNode.bands[10].gain = clamped
+        eqNode.bands[10].bypass = false
+    }
+
+    public func setDelayMix(_ mix: Float) {
+        let clamped = max(0, min(35, mix))
+        delayMix = clamped
+        delayNode.wetDryMix = clamped
+    }
+
+    public func setCompressorAmount(_ amount: Float) {
+        compressorAmount = max(0, min(1, amount))
+        configureDynamics()
+    }
+
+    public func setMasterVolume(_ volume: Float) {
+        masterVolume = max(0, min(1, volume))
+    }
+
     public func setEQBandGain(index: Int, gain: Float) {
         guard eqBands.indices.contains(index) else { return }
         let clamped = max(-12, min(12, gain))
@@ -965,6 +1084,9 @@ public final class AudioDSPEngine: ObservableObject {
         case .flat:
             for index in eqBands.indices { setEQBandGain(index: index, gain: 0) }
             setSuperBass(0)
+            setTreble(0)
+            setDelayMix(0)
+            setCompressorAmount(0)
             if isConcertHallEnabled {
                 isConcertHallEnabled = false
                 reverbWetDryMix = 0

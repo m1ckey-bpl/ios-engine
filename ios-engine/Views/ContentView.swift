@@ -35,7 +35,7 @@ public struct ContentView: View {
                 }
                 .padding(.vertical, 8)
                 .padding(.horizontal, 4)
-                .background(.ultraThinMaterial.opacity(0.46))
+                .background(.ultraThinMaterial.opacity(0.34))
                 .overlay(alignment: .top) {
                     Rectangle()
                         .fill(PioneerColors.titaniumCardBorder)

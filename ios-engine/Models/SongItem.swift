@@ -1,33 +1,45 @@
 import Foundation
 import AVFoundation
 
-/// A local file or a generated in-app test signal. Streaming catalog results use
-/// their provider's official player and are not represented as DSP library items.
+/// A local, app-owned audio file or the in-app DSP test signal. Search-provider
+/// results remain discovery metadata and are never used as playback assets.
 public struct SongItem: Identifiable, Equatable {
     public let id: UUID
-    public let title: String
-    public let artist: String
-    public let duration: TimeInterval
+    public var title: String
+    public var artist: String
+    public var album: String?
+    public var duration: TimeInterval
     public let fileURL: URL?
-    public let fileSize: String
+    public var fileSize: String
     public let isBuiltIn: Bool
+    public var artworkData: Data?
+    public var fileFingerprint: String?
+    public var dateAdded: Date
 
     public init(
         id: UUID = UUID(),
         title: String,
         artist: String,
+        album: String? = nil,
         duration: TimeInterval,
         fileURL: URL? = nil,
         fileSize: String = "Demo",
-        isBuiltIn: Bool = false
+        isBuiltIn: Bool = false,
+        artworkData: Data? = nil,
+        fileFingerprint: String? = nil,
+        dateAdded: Date = .now
     ) {
         self.id = id
         self.title = title
         self.artist = artist
+        self.album = album
         self.duration = duration
         self.fileURL = fileURL
         self.fileSize = fileSize
         self.isBuiltIn = isBuiltIn
+        self.artworkData = artworkData
+        self.fileFingerprint = fileFingerprint
+        self.dateAdded = dateAdded
     }
 
     public var formattedDuration: String {

@@ -2,8 +2,10 @@ import AVFoundation
 import AudioToolbox
 import Combine
 import CoreFoundation
+import Darwin
 import Foundation
 import MediaToolbox
+import MediaPlayer
 
 /// Plays an authorized, direct HTTPS audio resource and applies DSP to the decoded
 /// PCM buffers before they reach the audio output. It does not download or save audio.
@@ -34,6 +36,13 @@ public final class DirectStreamDSPPlayer: ObservableObject {
     private var itemStatusObservation: NSKeyValueObservation?
     private var generation = 0
     private var settingsSubscriptions = Set<AnyCancellable>()
+    private var sessionObservers: [NSObjectProtocol] = []
+    private var wasPlayingBeforeInterruption = false
+    private var shouldPlayWhenReady = true
+    private var masterVolume: Float = 0.82
+
+    public var isActive: Bool { player != nil && currentItem != nil }
+    public var isActiveOrLoading: Bool { isActive || isLoading }
 
     private let blockedDomains: Set<String> = [
         "youtube.com", "youtu.be", "youtube-nocookie.com", "googlevideo.com",
@@ -57,9 +66,22 @@ public final class DirectStreamDSPPlayer: ObservableObject {
         dspEngine.$reverbWetDryMix
             .sink { [weak self] _ in self?.synchronizeSharedDSPSettings() }
             .store(in: &settingsSubscriptions)
+        dspEngine.$trebleGain
+            .sink { [weak self] _ in self?.synchronizeSharedDSPSettings() }
+            .store(in: &settingsSubscriptions)
+        dspEngine.$delayMix
+            .sink { [weak self] _ in self?.synchronizeSharedDSPSettings() }
+            .store(in: &settingsSubscriptions)
+        dspEngine.$compressorAmount
+            .sink { [weak self] _ in self?.synchronizeSharedDSPSettings() }
+            .store(in: &settingsSubscriptions)
         dspEngine.$currentReverbRoom
             .sink { [weak self] _ in self?.synchronizeSharedDSPSettings() }
             .store(in: &settingsSubscriptions)
+        dspEngine.$masterVolume
+            .sink { [weak self] volume in self?.setMasterVolume(volume) }
+            .store(in: &settingsSubscriptions)
+        observeAudioSessionChanges()
     }
 
     private func synchronizeSharedDSPSettings(to state: StreamTapState? = nil) {
@@ -67,6 +89,9 @@ public final class DirectStreamDSPPlayer: ObservableObject {
         let dspEngine = AudioDSPEngine.shared
         target.setEqualizerGains(dspEngine.eqBands.map(\.gain))
         target.setBalancePan(dspEngine.listeningPosition.balancePan)
+        target.setTrebleGain(dspEngine.trebleGain)
+        target.setDelayMix(dspEngine.delayMix)
+        target.setCompressorAmount(dspEngine.compressorAmount)
         target.setConcertHall(
             enabled: dspEngine.isConcertHallEnabled,
             wetDryMix: dspEngine.reverbWetDryMix,
@@ -86,6 +111,7 @@ public final class DirectStreamDSPPlayer: ObservableObject {
         tearDownCurrentPlayer()
         isLoading = false
         isPlaying = false
+        shouldPlayWhenReady = false
         currentTime = 0
         duration = 0
         sourceLabel = nil
@@ -100,23 +126,57 @@ public final class DirectStreamDSPPlayer: ObservableObject {
             return
         }
 
+        AudioDSPEngine.shared.stopLocalPlayback()
+        shouldPlayWhenReady = true
         isLoading = true
         Task { await prepareAndPlay(url: url, generation: requestGeneration) }
     }
 
     public func togglePlayback() {
+        isPlaying ? pause() : resume()
+    }
+
+    public func pause() {
+        shouldPlayWhenReady = false
         guard let player else { return }
-        if isPlaying {
-            player.pause()
-            isPlaying = false
-        } else {
-            player.play()
-            isPlaying = true
+        player.pause()
+        isPlaying = false
+        updateNowPlayingInfo()
+    }
+
+    public func resume() {
+        shouldPlayWhenReady = true
+        guard let player else { return }
+        do { try AVAudioSession.sharedInstance().setActive(true) }
+        catch {
+            errorMessage = "iOS could not resume the direct stream after an audio-session change."
+            return
         }
+        if duration > 0, currentTime >= duration - 0.25 {
+            player.seek(to: .zero, toleranceBefore: .zero, toleranceAfter: .zero) { [weak self, weak player] finished in
+                guard finished else { return }
+                Task { @MainActor [weak self, weak player] in
+                    guard let self, let player, self.shouldPlayWhenReady else { return }
+                    player.play()
+                    self.isPlaying = true
+                    self.updateNowPlayingInfo()
+                }
+            }
+            return
+        }
+        player.play()
+        isPlaying = true
+        updateNowPlayingInfo()
+    }
+
+    public func setMasterVolume(_ value: Float) {
+        masterVolume = min(1, max(0, value))
+        player?.volume = masterVolume
     }
 
     public func stop() {
         generation &+= 1
+        shouldPlayWhenReady = false
         tearDownCurrentPlayer()
         isLoading = false
         isPlaying = false
@@ -124,6 +184,7 @@ public final class DirectStreamDSPPlayer: ObservableObject {
         duration = 0
         sourceLabel = nil
         errorMessage = nil
+        MPNowPlayingInfoCenter.default().nowPlayingInfo = nil
     }
 
     public func seek(toFraction fraction: Double) {
@@ -155,11 +216,11 @@ public final class DirectStreamDSPPlayer: ObservableObject {
         }
 
         let pathExtension = url.pathExtension.lowercased()
-        if pathExtension == "m3u8" {
+        if pathExtension == "m3u8" || components.percentEncodedPath.lowercased().contains(".m3u8") {
             return "HLS playlists aren’t enabled in this build. Paste a direct, non-DRM audio-file URL instead."
         }
-        if !pathExtension.isEmpty && !acceptedAudioExtensions.contains(pathExtension) {
-            return "Use a direct audio URL such as MP3, AAC/M4A, WAV, AIFF, or CAF—not a playlist or video page."
+        if !acceptedAudioExtensions.contains(pathExtension) {
+            return "Use a direct HTTPS audio-file URL ending in MP3, AAC/M4A, WAV, AIFF, or CAF—not an extensionless link, playlist, or video page."
         }
         return nil
     }
@@ -194,11 +255,11 @@ public final class DirectStreamDSPPlayer: ObservableObject {
             let mix = AVMutableAudioMix()
             mix.inputParameters = [inputParameters]
 
-            AudioDSPEngine.shared.stop()
             let item = AVPlayerItem(asset: asset)
             item.audioMix = mix
             let streamPlayer = AVPlayer(playerItem: item)
             streamPlayer.automaticallyWaitsToMinimizeStalling = true
+            streamPlayer.volume = masterVolume
 
             do {
                 let session = AVAudioSession.sharedInstance()
@@ -216,8 +277,14 @@ public final class DirectStreamDSPPlayer: ObservableObject {
             player = streamPlayer
             sourceLabel = url.host
             observe(item: item, player: streamPlayer, generation: requestGeneration)
-            streamPlayer.play()
-            isPlaying = true
+            if shouldPlayWhenReady {
+                streamPlayer.play()
+                isPlaying = true
+            } else {
+                streamPlayer.pause()
+                isPlaying = false
+            }
+            updateNowPlayingInfo()
         } catch {
             guard requestGeneration == generation else { return }
             isLoading = false
@@ -228,13 +295,24 @@ public final class DirectStreamDSPPlayer: ObservableObject {
 
     private func observe(item: AVPlayerItem, player: AVPlayer, generation requestGeneration: Int) {
         itemStatusObservation = item.observe(\.status, options: [.initial, .new]) { [weak self] observedItem, _ in
-            guard observedItem.status == .failed else { return }
+            let status = observedItem.status
             let detail = observedItem.error?.localizedDescription ?? "The source may be unavailable or unsupported."
             Task { @MainActor [weak self] in
                 guard let self, self.generation == requestGeneration else { return }
-                self.isLoading = false
-                self.isPlaying = false
-                self.errorMessage = "Stream playback failed. \(detail)"
+                if status == .failed {
+                    self.stop()
+                    self.errorMessage = "Stream playback failed. \(detail)"
+                } else if status == .readyToPlay {
+                    self.isLoading = false
+                    if self.shouldPlayWhenReady {
+                        player.play()
+                        self.isPlaying = true
+                    } else {
+                        player.pause()
+                        self.isPlaying = false
+                    }
+                    self.updateNowPlayingInfo()
+                }
             }
         }
 
@@ -246,11 +324,75 @@ public final class DirectStreamDSPPlayer: ObservableObject {
                 self.currentTime = seconds.isFinite ? max(0, seconds) : 0
                 let itemDuration = player.currentItem?.duration.seconds ?? 0
                 self.duration = itemDuration.isFinite && itemDuration > 0 ? itemDuration : 0
+                if let support = self.tapState?.processingSupportStatus,
+                   support.isPrepared, !support.isSupported {
+                    self.stop()
+                    self.errorMessage = "iOS provided a decoded audio format this DSP processor cannot safely modify. Use a supported PCM source or import the file locally."
+                    return
+                }
                 if player.currentItem?.status == .readyToPlay {
                     self.isLoading = false
                 }
                 self.isPlaying = player.timeControlStatus == .playing
+                self.updateNowPlayingInfo()
             }
+        }
+    }
+
+    private func updateNowPlayingInfo() {
+        guard isActive else { return }
+        var info: [String: Any] = [
+            MPMediaItemPropertyTitle: sourceLabel ?? "Authorized audio stream",
+            MPMediaItemPropertyArtist: "Direct authorized stream",
+            MPNowPlayingInfoPropertyElapsedPlaybackTime: currentTime,
+            MPNowPlayingInfoPropertyPlaybackRate: isPlaying ? 1.0 : 0.0
+        ]
+        if duration > 0 { info[MPMediaItemPropertyPlaybackDuration] = duration }
+        MPNowPlayingInfoCenter.default().nowPlayingInfo = info
+    }
+
+    private func observeAudioSessionChanges() {
+        let center = NotificationCenter.default
+        let session = AVAudioSession.sharedInstance()
+        let interruption = center.addObserver(
+            forName: AVAudioSession.interruptionNotification,
+            object: session,
+            queue: .main
+        ) { [weak self] notification in
+            Task { @MainActor [weak self] in self?.handleAudioInterruption(notification) }
+        }
+        let routeChange = center.addObserver(
+            forName: AVAudioSession.routeChangeNotification,
+            object: session,
+            queue: .main
+        ) { [weak self] notification in
+            Task { @MainActor [weak self] in self?.handleAudioRouteChange(notification) }
+        }
+        sessionObservers = [interruption, routeChange]
+    }
+
+    private func handleAudioInterruption(_ notification: Notification) {
+        guard let rawType = notification.userInfo?[AVAudioSessionInterruptionTypeKey] as? UInt,
+              let type = AVAudioSession.InterruptionType(rawValue: rawType) else { return }
+        if type == .began {
+            wasPlayingBeforeInterruption = isPlaying
+            if isPlaying { pause() }
+        } else if type == .ended {
+            let rawOptions = notification.userInfo?[AVAudioSessionInterruptionOptionKey] as? UInt ?? 0
+            let options = AVAudioSession.InterruptionOptions(rawValue: rawOptions)
+            if wasPlayingBeforeInterruption && options.contains(.shouldResume) { resume() }
+            wasPlayingBeforeInterruption = false
+        }
+    }
+
+    private func handleAudioRouteChange(_ notification: Notification) {
+        guard let rawReason = notification.userInfo?[AVAudioSessionRouteChangeReasonKey] as? UInt,
+              let reason = AVAudioSession.RouteChangeReason(rawValue: rawReason) else { return }
+        guard reason == .oldDeviceUnavailable,
+              let previous = notification.userInfo?[AVAudioSessionRouteChangePreviousRouteKey] as? AVAudioSessionRouteDescription else { return }
+        let personalOutputs: Set<AVAudioSession.Port> = [.headphones, .bluetoothA2DP, .bluetoothHFP, .bluetoothLE]
+        if previous.outputs.contains(where: { personalOutputs.contains($0.portType) }), isPlaying {
+            pause()
         }
     }
 
@@ -361,6 +503,9 @@ private final class StreamTapState {
     private struct Controls {
         var bassGainDB: Float = 0
         var roomMix: Float = 0
+        var delayMix: Float = 0
+        var trebleGainDB: Float = 0
+        var compressorAmount: Float = 0
         var equalizerGains = [Float](repeating: 0, count: 10)
         var balancePan: Float = 0
         var hallEnabled = false
@@ -384,7 +529,12 @@ private final class StreamTapState {
 
     private static let equalizerFrequencies: [Double] = [31, 63, 125, 250, 500, 1_000, 2_000, 4_000, 8_000, 16_000]
     private let controlsLock = NSLock()
+    private let formatLock = NSLock()
     private var controls = Controls()
+    private var formatWasPrepared = false
+    private var formatIsSupported = false
+    /// Written only by the tap's prepare/unprepare callbacks and read by its render callback.
+    private var canProcessAudio = false
 
     private var sampleRate: Double = 48_000
     private var channelCount = 2
@@ -392,7 +542,13 @@ private final class StreamTapState {
     private var isNonInterleaved = false
     private var lowPassAlpha: Float = 0.975
     private var lowPassState: [Float] = [0, 0]
+    private var trebleLowPassAlpha: Float = 0.48
+    private var trebleLowPassState: [Float] = [0, 0]
     private var delayLines: [[Float]] = []
+    private var echoLines: [[Float]] = []
+    private var echoCapacity = 1
+    private var echoOffset = 1
+    private var echoIndex = 0
     private var delayOffset1 = 1
     private var delayOffset2 = 2
     private var delayOffset3 = 3
@@ -400,8 +556,16 @@ private final class StreamTapState {
     private var delayCapacity = 1
     private var delayIndex = 0
     private var filterCoefficients = [BiquadCoefficients](repeating: BiquadCoefficients(), count: 10)
+    private var lastConfiguredGains = [Float](repeating: 0, count: 10)
     private var filterZ1: [Float] = []
     private var filterZ2: [Float] = []
+
+    var processingSupportStatus: (isPrepared: Bool, isSupported: Bool) {
+        formatLock.lock()
+        let status = (formatWasPrepared, formatIsSupported)
+        formatLock.unlock()
+        return status
+    }
 
     func setControls(bassGainDB: Float, roomMix: Float) {
         controlsLock.lock()
@@ -426,6 +590,24 @@ private final class StreamTapState {
         controlsLock.unlock()
     }
 
+    func setTrebleGain(_ gain: Float) {
+        controlsLock.lock()
+        controls.trebleGainDB = min(12, max(-12, gain))
+        controlsLock.unlock()
+    }
+
+    func setDelayMix(_ mix: Float) {
+        controlsLock.lock()
+        controls.delayMix = min(35, max(0, mix))
+        controlsLock.unlock()
+    }
+
+    func setCompressorAmount(_ amount: Float) {
+        controlsLock.lock()
+        controls.compressorAmount = min(1, max(0, amount))
+        controlsLock.unlock()
+    }
+
     func setConcertHall(enabled: Bool, wetDryMix: Float, room: ReverbRoomType) {
         controlsLock.lock()
         controls.hallEnabled = enabled
@@ -435,8 +617,12 @@ private final class StreamTapState {
     }
 
     func prepare(format: AudioStreamBasicDescription) {
-        sampleRate = format.mSampleRate > 0 ? format.mSampleRate : 48_000
-        channelCount = max(1, min(8, Int(format.mChannelsPerFrame)))
+        let sampleRateIsSupported = format.mSampleRate.isFinite
+            && format.mSampleRate >= 8_000
+            && format.mSampleRate <= 192_000
+        sampleRate = sampleRateIsSupported ? format.mSampleRate : 48_000
+        let rawChannelCount = Int(format.mChannelsPerFrame)
+        channelCount = max(1, min(2, rawChannelCount))
         isNonInterleaved = (format.mFormatFlags & kAudioFormatFlagIsNonInterleaved) != 0
         if format.mFormatID == kAudioFormatLinearPCM,
            format.mBitsPerChannel == 32,
@@ -449,52 +635,93 @@ private final class StreamTapState {
         } else {
             pcmKind = .unsupported
         }
-
         let cutoff = min(165.0, sampleRate * 0.42)
         lowPassAlpha = Float(exp(-2.0 * Double.pi * cutoff / sampleRate))
         lowPassState = [Float](repeating: 0, count: channelCount)
+        let trebleCutoff = min(5_000.0, sampleRate * 0.45)
+        trebleLowPassAlpha = Float(exp(-2.0 * Double.pi * trebleCutoff / sampleRate))
+        trebleLowPassState = [Float](repeating: 0, count: channelCount)
         delayCapacity = max(2, Int(sampleRate * 0.15) + 1)
         delayLines = (0..<channelCount).map { _ in [Float](repeating: 0, count: delayCapacity) }
+        echoCapacity = max(2, Int(sampleRate * 0.5) + 1)
+        echoOffset = min(echoCapacity - 1, max(1, Int(sampleRate * 0.32)))
+        echoLines = (0..<channelCount).map { _ in [Float](repeating: 0, count: echoCapacity) }
         delayIndex = 0
+        echoIndex = 0
         filterCoefficients = [BiquadCoefficients](repeating: BiquadCoefficients(), count: 10)
+        lastConfiguredGains = [Float](repeating: .nan, count: 10)
         filterZ1 = [Float](repeating: 0, count: channelCount * 10)
         filterZ2 = [Float](repeating: 0, count: channelCount * 10)
+        canProcessAudio = sampleRateIsSupported
+            && pcmKind != .unsupported
+            && (1...2).contains(rawChannelCount)
+        formatLock.lock()
+        formatWasPrepared = true
+        formatIsSupported = canProcessAudio
+        formatLock.unlock()
     }
 
     func unprepare() {
+        canProcessAudio = false
         delayLines.removeAll(keepingCapacity: true)
+        echoLines.removeAll(keepingCapacity: true)
         lowPassState = [Float](repeating: 0, count: max(1, channelCount))
+        trebleLowPassState = [Float](repeating: 0, count: max(1, channelCount))
         filterZ1 = [Float](repeating: 0, count: max(1, channelCount) * 10)
         filterZ2 = [Float](repeating: 0, count: max(1, channelCount) * 10)
         delayIndex = 0
+        echoIndex = 0
+        formatLock.lock()
+        formatWasPrepared = false
+        formatIsSupported = false
+        formatLock.unlock()
     }
 
     func process(bufferList: UnsafeMutablePointer<AudioBufferList>, frameCount: Int) {
         guard frameCount > 0 else { return }
+        let buffers = UnsafeMutableAudioBufferListPointer(bufferList)
+        guard !buffers.isEmpty else { return }
+        guard canProcessAudio else {
+            silence(buffers)
+            return
+        }
+
         let currentControls: Controls
         controlsLock.lock()
         currentControls = controls
         controlsLock.unlock()
 
         let bassBoost = powf(10, currentControls.bassGainDB / 20) - 1
+        let trebleBoost = powf(10, currentControls.trebleGainDB / 20) - 1
         let hallMix = currentControls.hallEnabled ? (currentControls.hallWetDryMix / 100) * 0.45 : 0
-        let roomMix = min(0.72, 1 - (1 - currentControls.roomMix) * (1 - hallMix))
+        let baseRoomMix = min(0.72, 1 - (1 - currentControls.roomMix) * (1 - hallMix))
+        let roomMix = min(0.72, baseRoomMix)
+        let echoMix = min(0.35, currentControls.delayMix / 100)
         configureRoomProfile(currentControls.roomType)
-        configureFilterCoefficients(gains: currentControls.equalizerGains)
-        let buffers = UnsafeMutableAudioBufferListPointer(bufferList)
-        guard !buffers.isEmpty else { return }
+        if currentControls.equalizerGains != lastConfiguredGains {
+            configureFilterCoefficients(gains: currentControls.equalizerGains)
+            lastConfiguredGains = currentControls.equalizerGains
+        }
 
         switch pcmKind {
         case .float32:
-            processFloat32(buffers, frameCount: frameCount, bassBoost: bassBoost, roomMix: roomMix, balancePan: currentControls.balancePan)
+            processFloat32(buffers, frameCount: frameCount, bassBoost: bassBoost, trebleBoost: trebleBoost, roomMix: roomMix, echoMix: echoMix, compressorAmount: currentControls.compressorAmount, balancePan: currentControls.balancePan)
         case .signedInt16:
-            processInt16(buffers, frameCount: frameCount, bassBoost: bassBoost, roomMix: roomMix, balancePan: currentControls.balancePan)
+            processInt16(buffers, frameCount: frameCount, bassBoost: bassBoost, trebleBoost: trebleBoost, roomMix: roomMix, echoMix: echoMix, compressorAmount: currentControls.compressorAmount, balancePan: currentControls.balancePan)
         case .unsupported:
             return
         }
     }
 
-    private func processFloat32(_ buffers: UnsafeMutableAudioBufferListPointer, frameCount: Int, bassBoost: Float, roomMix: Float, balancePan: Float) {
+    private func silence(_ buffers: UnsafeMutableAudioBufferListPointer) {
+        for index in 0..<buffers.count {
+            let audioBuffer = buffers[index]
+            guard let data = audioBuffer.mData, audioBuffer.mDataByteSize > 0 else { continue }
+            _ = memset(data, 0, Int(audioBuffer.mDataByteSize))
+        }
+    }
+
+    private func processFloat32(_ buffers: UnsafeMutableAudioBufferListPointer, frameCount: Int, bassBoost: Float, trebleBoost: Float, roomMix: Float, echoMix: Float, compressorAmount: Float, balancePan: Float) {
         if isNonInterleaved {
             let usableBuffers = min(buffers.count, channelCount)
             for frame in 0..<frameCount {
@@ -504,7 +731,7 @@ private final class StreamTapState {
                     let samples = rawData.assumingMemoryBound(to: Float.self)
                     let availableFrames = Int(audioBuffer.mDataByteSize) / MemoryLayout<Float>.size
                     guard frame < availableFrames else { continue }
-                    samples[frame] = processSample(samples[frame], channel: channel, bassBoost: bassBoost, roomMix: roomMix, balancePan: balancePan)
+                    samples[frame] = processSample(samples[frame], channel: channel, bassBoost: bassBoost, trebleBoost: trebleBoost, roomMix: roomMix, echoMix: echoMix, compressorAmount: compressorAmount, balancePan: balancePan)
                 }
                 advanceDelayIndex()
             }
@@ -520,14 +747,14 @@ private final class StreamTapState {
                 let base = frame * channelsInBuffer
                 for channel in 0..<activeChannels {
                     let index = base + channel
-                    samples[index] = processSample(samples[index], channel: channel, bassBoost: bassBoost, roomMix: roomMix, balancePan: balancePan)
+                    samples[index] = processSample(samples[index], channel: channel, bassBoost: bassBoost, trebleBoost: trebleBoost, roomMix: roomMix, echoMix: echoMix, compressorAmount: compressorAmount, balancePan: balancePan)
                 }
                 advanceDelayIndex()
             }
         }
     }
 
-    private func processInt16(_ buffers: UnsafeMutableAudioBufferListPointer, frameCount: Int, bassBoost: Float, roomMix: Float, balancePan: Float) {
+    private func processInt16(_ buffers: UnsafeMutableAudioBufferListPointer, frameCount: Int, bassBoost: Float, trebleBoost: Float, roomMix: Float, echoMix: Float, compressorAmount: Float, balancePan: Float) {
         if isNonInterleaved {
             let usableBuffers = min(buffers.count, channelCount)
             for frame in 0..<frameCount {
@@ -538,7 +765,7 @@ private final class StreamTapState {
                     let availableFrames = Int(audioBuffer.mDataByteSize) / MemoryLayout<Int16>.size
                     guard frame < availableFrames else { continue }
                     let input = Float(samples[frame]) / 32_768
-                    samples[frame] = Int16(processSample(input, channel: channel, bassBoost: bassBoost, roomMix: roomMix, balancePan: balancePan) * 32_767)
+                    samples[frame] = Int16(processSample(input, channel: channel, bassBoost: bassBoost, trebleBoost: trebleBoost, roomMix: roomMix, echoMix: echoMix, compressorAmount: compressorAmount, balancePan: balancePan) * 32_767)
                 }
                 advanceDelayIndex()
             }
@@ -555,7 +782,7 @@ private final class StreamTapState {
                 for channel in 0..<activeChannels {
                     let index = base + channel
                     let input = Float(samples[index]) / 32_768
-                    samples[index] = Int16(processSample(input, channel: channel, bassBoost: bassBoost, roomMix: roomMix, balancePan: balancePan) * 32_767)
+                    samples[index] = Int16(processSample(input, channel: channel, bassBoost: bassBoost, trebleBoost: trebleBoost, roomMix: roomMix, echoMix: echoMix, compressorAmount: compressorAmount, balancePan: balancePan) * 32_767)
                 }
                 advanceDelayIndex()
             }
@@ -607,11 +834,15 @@ private final class StreamTapState {
         }
     }
 
-    private func processSample(_ input: Float, channel: Int, bassBoost: Float, roomMix: Float, balancePan: Float) -> Float {
+    private func processSample(_ input: Float, channel: Int, bassBoost: Float, trebleBoost: Float, roomMix: Float, echoMix: Float, compressorAmount: Float, balancePan: Float) -> Float {
         guard channel < lowPassState.count, channel < delayLines.count else { return input }
         let low = (1 - lowPassAlpha) * input + lowPassAlpha * lowPassState[channel]
         lowPassState[channel] = low
         var output = input + low * bassBoost
+
+        let trebleLow = (1 - trebleLowPassAlpha) * output + trebleLowPassAlpha * trebleLowPassState[channel]
+        trebleLowPassState[channel] = trebleLow
+        output += (output - trebleLow) * trebleBoost
 
         for band in 0..<10 {
             let stateIndex = channel * 10 + band
@@ -628,19 +859,37 @@ private final class StreamTapState {
             output *= 1 + balancePan
         }
 
+        let d1 = delayLines[channel][(delayIndex + delayCapacity - delayOffset1) % delayCapacity]
+        let d2 = delayLines[channel][(delayIndex + delayCapacity - delayOffset2) % delayCapacity]
+        let d3 = delayLines[channel][(delayIndex + delayCapacity - delayOffset3) % delayCapacity]
+        let earlyRoom = d1 * 0.45 + d2 * 0.34 + d3 * 0.21
+        let activeFeedback = roomMix > 0.0001 ? roomFeedback : 0
+        delayLines[channel][delayIndex] = output + (d1 + d2 + d3) * activeFeedback
         if roomMix > 0.0001 {
-            let d1 = delayLines[channel][(delayIndex + delayCapacity - delayOffset1) % delayCapacity]
-            let d2 = delayLines[channel][(delayIndex + delayCapacity - delayOffset2) % delayCapacity]
-            let d3 = delayLines[channel][(delayIndex + delayCapacity - delayOffset3) % delayCapacity]
-            let earlyRoom = d1 * 0.45 + d2 * 0.34 + d3 * 0.21
-            delayLines[channel][delayIndex] = output + (d1 + d2 + d3) * roomFeedback
             output = output * (1 - roomMix) + earlyRoom * roomMix
         }
-        return min(0.98, max(-0.98, output))
+
+        let echoReadIndex = (echoIndex + echoCapacity - echoOffset) % echoCapacity
+        let delayed = echoLines[channel][echoReadIndex]
+        echoLines[channel][echoIndex] = output + (echoMix > 0.0001 ? delayed * 0.18 : 0)
+        if echoMix > 0.0001 {
+            output = output * (1 - echoMix) + delayed * echoMix
+        }
+
+        guard output.isFinite else { return 0 }
+        let magnitude = abs(output)
+        let threshold = 0.94 - 0.22 * compressorAmount
+        let ceiling: Float = 0.985
+        guard magnitude > threshold else { return output }
+        let knee = max(0.001, ceiling - threshold)
+        let limitedMagnitude = min(ceiling, threshold + knee * (magnitude - threshold) / (magnitude - threshold + knee))
+        return output < 0 ? -limitedMagnitude : limitedMagnitude
     }
 
     private func advanceDelayIndex() {
         delayIndex += 1
         if delayIndex >= delayCapacity { delayIndex = 0 }
+        echoIndex += 1
+        if echoIndex >= echoCapacity { echoIndex = 0 }
     }
 }

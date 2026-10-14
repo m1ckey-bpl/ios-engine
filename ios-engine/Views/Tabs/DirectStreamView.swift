@@ -18,7 +18,7 @@ public struct DirectStreamView: View {
                         .tracking(0.6)
                         .foregroundColor(PioneerColors.amberOrange)
 
-                    Text("Paste an HTTPS URL to an audio file hosted by a service that permits streaming. DSP is applied to decoded audio in real time; the app does not save a copy.")
+                    Text("Paste an HTTPS URL to an audio file hosted by a service that permits streaming. DSP is applied to decoded audio in real time; the app does not save a copy. Your authorization is a user confirmation, not an independent license check.")
                         .font(.system(size: 12, weight: .medium))
                         .foregroundColor(PioneerColors.textMuted)
                         .fixedSize(horizontal: false, vertical: true)
@@ -29,7 +29,10 @@ public struct DirectStreamView: View {
                         .autocorrectionDisabled()
                         .keyboardType(.URL)
                         .submitLabel(.go)
-                        .onSubmit { stream.start(authorized: confirmsAuthorization) }
+                        .onSubmit {
+                            stream.start(authorized: confirmsAuthorization)
+                            confirmsAuthorization = false
+                        }
                         .padding(12)
                         .background(Color.black.opacity(0.16), in: RoundedRectangle(cornerRadius: 11, style: .continuous))
                         .overlay {
@@ -48,6 +51,7 @@ public struct DirectStreamView: View {
                     HStack(spacing: 10) {
                         Button {
                             stream.start(authorized: confirmsAuthorization)
+                            confirmsAuthorization = false
                         } label: {
                             HStack(spacing: 8) {
                                 if stream.isLoading {
@@ -100,7 +104,7 @@ public struct DirectStreamView: View {
                 HStack(alignment: .top, spacing: 9) {
                     Image(systemName: "info.circle.fill")
                         .foregroundColor(PioneerColors.cyberCyan)
-                    Text("Direct MP3, AAC/M4A, WAV, AIFF, and CAF audio URLs are supported when iOS can decode them. YouTube, Spotify, DRM/FairPlay, HLS playlists, video pages, and audio from other apps aren’t processed here.")
+                    Text("Direct mono/stereo MP3, AAC/M4A, WAV, AIFF, and CAF audio-file URLs are supported when iOS decodes them to a DSP-compatible PCM format. YouTube, Spotify, DRM/FairPlay, HLS playlists, video pages, and other-app audio aren’t processed here.")
                         .font(.system(size: 10, weight: .medium))
                         .foregroundColor(PioneerColors.textMuted)
                         .fixedSize(horizontal: false, vertical: true)
@@ -149,7 +153,36 @@ public struct DirectStreamView: View {
                         .frame(maxWidth: .infinity)
                     }
 
-                    Text("The 10-band EQ and seat balance follow shared DSP controls; Hall room/mix shapes the stream’s multi-tap room tail. Bass shelf is an extra stream control.")
+                    streamSlider(
+                        title: "TREBLE SHELF",
+                        valueText: String(format: "%+.0f dB", dspEngine.trebleGain),
+                        value: Binding(get: { dspEngine.trebleGain }, set: { dspEngine.setTreble($0) }),
+                        range: -12...12,
+                        color: PioneerColors.cyberCyan
+                    )
+                    streamSlider(
+                        title: "DIGITAL DELAY",
+                        valueText: String(format: "%.0f%%", dspEngine.delayMix),
+                        value: Binding(get: { dspEngine.delayMix }, set: { dspEngine.setDelayMix($0) }),
+                        range: 0...35,
+                        color: PioneerColors.amberOrange
+                    )
+                    streamSlider(
+                        title: "COMPRESSOR / PEAK CONTROL",
+                        valueText: String(format: "%.0f%%", dspEngine.compressorAmount * 100),
+                        value: Binding(get: { dspEngine.compressorAmount * 100 }, set: { dspEngine.setCompressorAmount($0 / 100) }),
+                        range: 0...100,
+                        color: PioneerColors.cyberCyan
+                    )
+                    streamSlider(
+                        title: "MASTER VOLUME",
+                        valueText: String(format: "%.0f%%", dspEngine.masterVolume * 100),
+                        value: Binding(get: { dspEngine.masterVolume * 100 }, set: { dspEngine.setMasterVolume($0 / 100) }),
+                        range: 0...100,
+                        color: PioneerColors.amberOrange
+                    )
+
+                    Text("The stream uses the same EQ, treble, delay, compressor/soft limiter, and master-volume controls as local playback. Hall, balance, and bass are applied to decoded PCM in the real-time tap.")
                         .font(.system(size: 10, weight: .medium))
                         .foregroundColor(PioneerColors.textMuted)
                         .multilineTextAlignment(.center)
@@ -246,5 +279,26 @@ public struct DirectStreamView: View {
     private func timeLabel(_ value: TimeInterval) -> String {
         guard value.isFinite, value >= 0 else { return "0:00" }
         return String(format: "%d:%02d", Int(value) / 60, Int(value) % 60)
+    }
+
+    private func streamSlider(
+        title: String,
+        valueText: String,
+        value: Binding<Float>,
+        range: ClosedRange<Float>,
+        color: Color
+    ) -> some View {
+        VStack(spacing: 4) {
+            HStack {
+                Text(title)
+                    .font(.system(size: 8, weight: .bold, design: .monospaced))
+                    .foregroundColor(PioneerColors.textMuted)
+                Spacer()
+                Text(valueText)
+                    .font(.system(size: 8, weight: .black, design: .monospaced))
+                    .foregroundColor(color)
+            }
+            Slider(value: value, in: range).tint(color)
+        }
     }
 }
